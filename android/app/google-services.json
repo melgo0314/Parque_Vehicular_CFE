@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "730079482658",
+    "project_id": "p-vehicular",
+    "storage_bucket": "p-vehicular.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:730079482658:android:86c3d6ff43cd56590ccb7b",
+        "android_client_info": {
+          "package_name": "com.example.p_vehicular"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8AehEL5loxitIuJSVOceJDpicVIalB4M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

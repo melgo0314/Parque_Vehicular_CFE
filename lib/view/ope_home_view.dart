@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
+import 'package:p_vehicular/core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
 
 class OpeHomeView extends StatelessWidget {
@@ -20,6 +21,29 @@ class OpeHomeView extends StatelessWidget {
         .snapshots();
   }
 
+  Future<void> _logout(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+
+      if (!context.mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.login,
+        (route) => false,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo cerrar la sesión. Intenta nuevamente.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +51,7 @@ class OpeHomeView extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _encabezado(),
+            _encabezado(context),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -36,7 +60,7 @@ class OpeHomeView extends StatelessWidget {
                   children: [
                     _tarjetaUnidadAsignada(),
                     const SizedBox(height: 16),
-                    _accionesRapidas(),
+                    _accionesRapidas(context),
                     const SizedBox(height: 24),
                     const Text(
                       'Módulos',
@@ -47,7 +71,7 @@ class OpeHomeView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _modulos(),
+                    _modulos(context),
                   ],
                 ),
               ),
@@ -58,7 +82,7 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  Widget _encabezado() {
+  Widget _encabezado(BuildContext context) {
     return Container(
       width: double.infinity,
       color: AppTheme.cfeGreen,
@@ -84,6 +108,8 @@ class OpeHomeView extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Parque Vehicular • Civac',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppTheme.pureWhite,
                     fontSize: 18,
@@ -91,49 +117,60 @@ class OpeHomeView extends StatelessWidget {
                   ),
                 ),
               ),
-              Stack(
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Stack(
+                    children: [
+                      IconButton(
+                        tooltip: 'Notificaciones',
+                        constraints: const BoxConstraints(
+                          minWidth: 48,
+                          minHeight: 48,
+                        ),
+                        icon: const Icon(
+                          Icons.notifications_none_outlined,
+                          color: AppTheme.pureWhite,
+                          size: 28,
+                        ),
+                        onPressed: () {},
+                      ),
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: CircleAvatar(
+                          radius: 8,
+                          backgroundColor: AppTheme.errorRed,
+                          child: const Text(
+                            '3',
+                            style: TextStyle(
+                              color: AppTheme.pureWhite,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   IconButton(
-                    tooltip: 'Notificaciones',
+                    tooltip: 'Cerrar sesión',
                     constraints: const BoxConstraints(
                       minWidth: 48,
                       minHeight: 48,
                     ),
                     icon: const Icon(
-                      Icons.notifications_none_outlined,
+                      Icons.logout,
                       color: AppTheme.pureWhite,
-                      size: 28,
+                      size: 24,
                     ),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: CircleAvatar(
-                      radius: 8,
-                      backgroundColor: AppTheme.errorRed,
-                      child: const Text(
-                        '3',
-                        style: TextStyle(
-                          color: AppTheme.pureWhite,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    onPressed: () => _logout(context),
                   ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Text(
-            'Buen día,',
-            style: TextStyle(
-              color: AppTheme.pureWhite.withValues(alpha: 0.85),
-              fontSize: 15,
-            ),
-          ),
           StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: _obtenerUsuario(),
             builder: (context, snapshot) {
@@ -344,16 +381,18 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  Widget _accionesRapidas() {
+  Widget _accionesRapidas(BuildContext context) {
     return Row(
       children: [
         Expanded(
           child: _botonAccionRapida(
-            etiqueta: 'Cargar combustible',
+            etiqueta: 'Registrar combustible',
             icono: Icons.local_gas_station,
             color: AppTheme.accentYellow,
             colorTexto: AppTheme.accentText,
-            alTocar: () {},
+            alTocar: () {
+              Navigator.pushNamed(context, AppRoutes.combustible);
+            },
           ),
         ),
         const SizedBox(width: 12),
@@ -363,7 +402,9 @@ class OpeHomeView extends StatelessWidget {
             icono: Icons.speed,
             color: AppTheme.cfeGreen,
             colorTexto: AppTheme.pureWhite,
-            alTocar: () {},
+            alTocar: () {
+              // Aquí se conectará la ruta del módulo de kilometraje.
+            },
           ),
         ),
       ],
@@ -409,7 +450,7 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  Widget _modulos() {
+  Widget _modulos(BuildContext context) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -418,12 +459,26 @@ class OpeHomeView extends StatelessWidget {
       mainAxisSpacing: 12,
       childAspectRatio: 2.1,
       children: [
-        _tarjetaModulo('Vehículos', Icons.local_shipping_outlined, () {}),
-        _tarjetaModulo('Combustible', Icons.local_gas_station_outlined, () {}),
-        _tarjetaModulo('Kilometraje', Icons.speed_outlined, () {}),
-        _tarjetaModulo('Mantenimientos', Icons.build_circle_outlined, () {}),
-        _tarjetaModulo('Inventario', Icons.inventory_2_outlined, () {}),
-        _tarjetaModulo('Expedientes', Icons.folder_open_outlined, () {}),
+        _tarjetaModulo(
+          'Vehículos',
+          Icons.local_shipping_outlined,
+          () => Navigator.pushNamed(context, AppRoutes.vehiculos),
+        ),
+        _tarjetaModulo(
+          'Mantenimientos',
+          Icons.build_circle_outlined,
+          () {},
+        ),
+        _tarjetaModulo(
+          'Inventario',
+          Icons.inventory_2_outlined,
+          () {},
+        ),
+        _tarjetaModulo(
+          'Expedientes',
+          Icons.folder_open_outlined,
+          () {},
+        ),
       ],
     );
   }

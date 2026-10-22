@@ -49,6 +49,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     if (_motivoSeleccionado == 'Otro') {
       return _otroMotivoController.text.trim();
     }
+
     return _motivoSeleccionado ?? '';
   }
 
@@ -57,6 +58,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     super.initState();
 
     final asignacion = widget.asignacion;
+
     if (asignacion != null) {
       _operadorUid = asignacion.operadorUid;
       _vehiculoUid = asignacion.vehiculoUid;
@@ -204,6 +206,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     }
 
     if (!mounted) return;
+
     setState(() => _guardando = false);
 
     if (!guardado) {
@@ -241,7 +244,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.infoSurface,
-        border: Border.all(color: AppTheme.infoBlue.withValues(alpha: 0.18)),
+        border: Border.all(
+          color: AppTheme.infoBlue.withValues(alpha: 0.18),
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Row(
@@ -286,9 +291,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
         labelText: etiqueta,
         prefixIcon: const Icon(Icons.hourglass_top),
       ),
-      child: const LinearProgressIndicator(
-        color: AppTheme.cfeGreen,
-      ),
+      child: const LinearProgressIndicator(color: AppTheme.cfeGreen),
     );
   }
 
@@ -691,6 +694,78 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  Widget _contenidoFormulario() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _esEdicion ? 'Editar asignación' : 'Datos de la asignación',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryText,
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (_esTemporal) ...[
+            _avisoTemporal(),
+            const SizedBox(height: 16),
+          ],
+          _selectorOperador(),
+          const SizedBox(height: 16),
+          _selectorVehiculo(),
+          const SizedBox(height: 16),
+          _selectorTipo(),
+          const SizedBox(height: 16),
+          _fechas(),
+          if (_esTemporal) ...[
+            const SizedBox(height: 16),
+            _selectorMotivo(),
+          ],
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              backgroundColor: AppTheme.cfeGreen,
+              foregroundColor: AppTheme.pureWhite,
+            ),
+            onPressed: _guardando ? null : _guardar,
+            icon: _guardando
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.pureWhite,
+                    ),
+                  )
+                : const Icon(Icons.check),
+            label: Text(
+              _guardando
+                  ? 'Guardando…'
+                  : _esEdicion
+                      ? 'Guardar cambios'
+                      : 'Guardar asignación',
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              foregroundColor: AppTheme.primaryText,
+              side: const BorderSide(color: AppTheme.border),
+            ),
+            onPressed:
+                _guardando ? null : () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -705,67 +780,21 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
       ),
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 650),
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (_esTemporal) ...[
-                    _avisoTemporal(),
-                    const SizedBox(height: 16),
-                  ],
-                  _selectorOperador(),
-                  const SizedBox(height: 16),
-                  _selectorVehiculo(),
-                  const SizedBox(height: 16),
-                  _selectorTipo(),
-                  const SizedBox(height: 16),
-                  _fechas(),
-                  if (_esTemporal) ...[
-                    const SizedBox(height: 16),
-                    _selectorMotivo(),
-                  ],
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(56),
-                      backgroundColor: AppTheme.cfeGreen,
-                      foregroundColor: AppTheme.pureWhite,
-                    ),
-                    onPressed: _guardando ? null : _guardar,
-                    icon: _guardando
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.pureWhite,
-                            ),
-                          )
-                        : const Icon(Icons.check),
-                    label: Text(
-                      _guardando
-                          ? 'Guardando…'
-                          : _esEdicion
-                              ? 'Guardar cambios'
-                              : 'Guardar asignación',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(56),
-                      foregroundColor: AppTheme.primaryText,
-                      side: const BorderSide(color: AppTheme.border),
-                    ),
-                    onPressed: _guardando
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: const Text('Cancelar'),
-                  ),
-                ],
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 650),
+              child: Card(
+                color: AppTheme.pureWhite,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppTheme.border),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: _contenidoFormulario(),
+                ),
               ),
             ),
           ),

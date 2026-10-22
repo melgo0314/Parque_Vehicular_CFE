@@ -119,13 +119,23 @@ class AdminHomeView extends StatelessWidget {
                               context,
                               Icons.local_gas_station_outlined,
                               'Combustible',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.combustible,
+                                );
+                              },
                             ),
                             _tarjetaModulo(
                               context,
                               Icons.speed_outlined,
                               'Kilometraje',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.kilometraje,
+                                );
+                              },
                             ),
                             _tarjetaModulo(
                               context,

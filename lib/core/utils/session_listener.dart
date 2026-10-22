@@ -149,8 +149,8 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
   String _textoTiempoInactividad() {
     final minutos = _tiempoInactividad.inMinutes;
 
-    if (minutos == 1) {
-      return '1 minuto de inactividad';
+    if (minutos == 5) {
+      return '5 minuto de inactividad';
     }
 
     return '$minutos minutos de inactividad';

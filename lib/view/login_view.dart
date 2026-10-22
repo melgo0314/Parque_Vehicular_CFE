@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../viewmodel/auth_viewmodel.dart';
+
 import '../core/routes/app_routes.dart';
+import '../core/theme/app_theme.dart';
+import '../viewmodel/auth_viewmodel.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -10,238 +12,282 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  // Manejo de validaciones del formulario 
   final _formKey = GlobalKey<FormState>();
-  
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthViewModel _viewModel = AuthViewModel();
-  
-  bool _obscurePassword = true;
+  final _viewModel = AuthViewModel();
 
-  // RegEx para validación del formato de correo electrónico
+  bool _ocultarContrasena = true;
+
   final RegExp _emailRegExp = RegExp(
-    r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
+    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
   );
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _viewModel.dispose();
     super.dispose();
   }
 
-  // Envío del Formulario con Validación de Credenciales 
-  Future<void> _submit() async {
-  // Validar los campos antes de consultar Firebase.
-  if (!_formKey.currentState!.validate()) {
-    return;
+  Future<void> _iniciarSesion() async {
+    FocusScope.of(context).unfocus();
+
+    if (!_formKey.currentState!.validate()) return;
+
+    final rol = await _viewModel.login(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    String? ruta;
+
+    if (rol == 'administrador' || rol == 'superusuario') {
+      ruta = AppRoutes.adminHome;
+    } else if (rol == 'operador') {
+      ruta = AppRoutes.operatorHome;
+    }
+
+    if (ruta == null) {
+      _mostrarMensaje(
+        'No se pudo iniciar sesión. Verifica tus datos y el rol asignado.',
+        esError: true,
+      );
+      return;
+    }
+
+    Navigator.pushReplacementNamed(context, ruta);
   }
 
-  final String correo = _emailController.text.trim();
-  final String contrasena = _passwordController.text;
-
-  final String? rol = await _viewModel.login(
-    correo,
-    contrasena,
-  );
-
-  if (!mounted) return;
-
-  if (rol == 'administrador') {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Inicio de sesión correcto.'),
-      ),
-    );
-
-    Navigator.pushReplacementNamed(
-      context,
-      AppRoutes.adminHome,
-    );
-  } else if (rol == 'operador') {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Inicio de sesión correcto.'),
-      ),
-    );
-
-    Navigator.pushReplacementNamed(
-      context,
-      AppRoutes.operatorHome,
-    );
-  } else if (rol == 'superusuario') {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Inicio de sesión correcto.'),
-      ),
-    );
-
-    // Temporalmente utiliza la pantalla del administrador.
-    Navigator.pushReplacementNamed(
-      context,
-      AppRoutes.adminHome,
-    );
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'No se pudo iniciar sesión. Verifica tus credenciales y el rol asignado.',
-        ),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
-  }
-}
-
-  // Opción "Olvidé mi contraseña" requerida por FN.1
-  void _recoverPassword() async {
+  Future<void> _recuperarContrasena() async {
     final email = _emailController.text.trim();
-    
+
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, escribe tu correo en el campo superior para enviarte el enlace.'),
-          backgroundColor: Colors.orange,
-        ),
+      _mostrarMensaje(
+        'Escribe tu correo para enviarte el enlace de recuperación.',
+        esError: true,
       );
       return;
     }
 
     if (!_emailRegExp.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Por favor, ingresa un formato de correo electrónico válido.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+      _mostrarMensaje(
+        'Escribe un correo electrónico válido.',
+        esError: true,
       );
       return;
     }
 
-    bool sent = await _viewModel.sendPasswordReset(email);
-    
+    final enviado = await _viewModel.sendPasswordReset(email);
+
     if (!mounted) return;
 
-    if (sent) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('¡Enlace enviado! Revisa tu bandeja de entrada.'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ),
-      );
+    if (enviado) {
+      _mostrarMensaje('Enlace enviado. Revisa tu correo.');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Error al enviar el enlace. Verifica que el correo esté registrado.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+      _mostrarMensaje(
+        'No se pudo enviar el enlace. Verifica que el correo esté registrado.',
+        esError: true,
       );
     }
+  }
+
+  void _mostrarMensaje(String mensaje, {bool esError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(mensaje),
+          backgroundColor: esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.pearlWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey, // Motor de validación activo
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'PARQUE VEHICULAR',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26, 
-                    fontWeight: FontWeight.bold, 
-                    color: Theme.of(context).colorScheme.primary, // Heredado de AppTheme
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Distribución Civac - Zona Morelos',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-                const SizedBox(height: 40),
-                
-                // Campo Correo Institucional
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo Institucional', 
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'El correo institucional es obligatorio.';
-                    }
-                    if (!_emailRegExp.hasMatch(value.trim())) {
-                      return 'Introduce un formato de correo válido (ejemplo@dominio.com).';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                
-                // Campo Contraseña
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña', 
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+        child: LayoutBuilder(
+          builder: (context, limites) {
+            final margenHorizontal = limites.maxWidth >= 700 ? 48.0 : 20.0;
+            final altoMinimo = (limites.maxHeight - 48)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: margenHorizontal,
+                vertical: 24,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: altoMinimo),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Card(
+                      color: AppTheme.pureWhite,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: const BorderSide(color: AppTheme.border),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'PARQUE VEHICULAR',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      color: AppTheme.cfeGreen,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Distribución Civac - Zona Morelos',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: AppTheme.secondaryText,
+                                    ),
+                              ),
+                              const SizedBox(height: 32),
+
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [
+                                  AutofillHints.username,
+                                  AutofillHints.email,
+                                ],
+                                decoration: const InputDecoration(
+                                  labelText: 'Correo institucional',
+                                  prefixIcon: Icon(Icons.email_outlined),
+                                ),
+                                validator: (valor) {
+                                  if (valor == null ||
+                                      valor.trim().isEmpty) {
+                                    return 'El correo es obligatorio.';
+                                  }
+
+                                  if (!_emailRegExp.hasMatch(valor.trim())) {
+                                    return 'Escribe un correo válido.';
+                                  }
+
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: _ocultarContrasena,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [
+                                  AutofillHints.password,
+                                ],
+                                onFieldSubmitted: (_) => _iniciarSesion(),
+                                decoration: InputDecoration(
+                                  labelText: 'Contraseña',
+                                  prefixIcon:
+                                      const Icon(Icons.lock_outline),
+                                  suffixIcon: IconButton(
+                                    tooltip: _ocultarContrasena
+                                        ? 'Mostrar contraseña'
+                                        : 'Ocultar contraseña',
+                                    onPressed: () {
+                                      setState(() {
+                                        _ocultarContrasena =
+                                            !_ocultarContrasena;
+                                      });
+                                    },
+                                    icon: Icon(
+                                      _ocultarContrasena
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                  ),
+                                ),
+                                validator: (valor) {
+                                  if (valor == null || valor.isEmpty) {
+                                    return 'La contraseña es obligatoria.';
+                                  }
+
+                                  if (valor.length < 6) {
+                                    return 'Debe tener al menos 6 caracteres.';
+                                  }
+
+                                  return null;
+                                },
+                              ),
+
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _viewModel.isLoading
+                                      ? null
+                                      : _recuperarContrasena,
+                                  child: const Text(
+                                    '¿Olvidaste tu contraseña?',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+
+                              ListenableBuilder(
+                                listenable: _viewModel,
+                                builder: (context, child) {
+                                  return SizedBox(
+                                    height: 56,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _viewModel.isLoading
+                                          ? null
+                                          : _iniciarSesion,
+                                      icon: _viewModel.isLoading
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child:
+                                                  CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: AppTheme.pureWhite,
+                                              ),
+                                            )
+                                          : const Icon(Icons.login),
+                                      label: Text(
+                                        _viewModel.isLoading
+                                            ? 'Iniciando sesión...'
+                                            : 'Iniciar sesión',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'La contraseña es obligatoria.';
-                    }
-                    if (value.length < 6) {
-                      return 'La contraseña debe tener al menos 6 caracteres.';
-                    }
-                    return null;
-                  },
                 ),
-                
-                // Opción Olvidé mi Contraseña
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _recoverPassword,
-                    child: const Text('¿Olvidaste tu contraseña?'),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Botón Ingresar
-                ListenableBuilder(
-                  listenable: _viewModel,
-                  builder: (context, child) {
-                    return _viewModel.isLoading
-                     ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
-                      : ElevatedButton(
-                        onPressed: _submit,
-                        child: const Text('Ingresar'),
-                      );
-                  },
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

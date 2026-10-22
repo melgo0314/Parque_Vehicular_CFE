@@ -83,7 +83,7 @@ class VehiculoModel {
       estado: estado ?? this.estado,
       estadoOperativo: estadoOperativo ?? this.estadoOperativo,
       kilometrajeActual:
-          kilometrajeActual ?? this.kilometrajeActual,
+        kilometrajeActual ?? this.kilometrajeActual,
     );
   }
 

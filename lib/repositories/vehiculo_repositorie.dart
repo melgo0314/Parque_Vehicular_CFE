@@ -46,7 +46,7 @@ class VehiculoRepositorie {
     });
   }
 
-  /// Registra un vehículo con estado activo.
+  // Registra un vehículo con estado activo.
   Future<void> registrarVehiculo(VehiculoModel vehiculo) async {
     _validarDatos(vehiculo);
 
@@ -70,7 +70,7 @@ class VehiculoRepositorie {
     });
   }
 
-  /// Actualiza los datos generales del vehículo.
+  // Actualiza los datos generales del vehículo.
   Future<void> actualizarVehiculo(VehiculoModel vehiculo) async {
     if (vehiculo.uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -102,7 +102,7 @@ class VehiculoRepositorie {
     });
   }
 
-  /// Da de baja el vehículo sin borrar el documento ni su historial.
+  // Da de baja el vehículo sin borrar el documento ni su historial.
   Future<void> darDeBaja(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -121,7 +121,7 @@ class VehiculoRepositorie {
     });
   }
 
-  /// Permite reactivar un vehículo que estaba dado de baja.
+  // Permite reactivar un vehículo que estaba dado de baja.
   Future<void> reactivarVehiculo(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');

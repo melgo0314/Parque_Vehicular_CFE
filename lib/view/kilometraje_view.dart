@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:p_vehicular/models/kilometraje_model.dart';
+
 import '../core/theme/app_theme.dart';
+import '../models/kilometraje_model.dart';
 import '../models/vehiculos_model.dart';
+import '../view/form_kilometraje_view.dart';
 import '../viewmodel/kilometraje_viewmodel.dart';
 
 class KilometrajeView extends StatefulWidget {
@@ -19,21 +23,114 @@ class KilometrajeView extends StatefulWidget {
 class _KilometrajeViewState extends State<KilometrajeView> {
   final _viewModel = KilometrajeViewModel();
 
+  late List<VehiculoModel> _vehiculos;
+  StreamSubscription<List<VehiculoModel>>? _suscripcionVehiculos;
+
   String? _vehiculoUid;
+  String? _errorVehiculos;
+  bool _cargandoVehiculos = false;
 
   @override
   void initState() {
     super.initState();
 
-    if (widget.vehiculos.isNotEmpty) {
-      _vehiculoUid = widget.vehiculos.first.uid;
+    _vehiculos = widget.vehiculos;
+
+    if (_vehiculos.isEmpty) {
+      _cargarVehiculos();
+    } else {
+      _vehiculoUid = _vehiculos.first.uid;
     }
+  }
+
+  void _cargarVehiculos() {
+    _cargandoVehiculos = true;
+
+    _suscripcionVehiculos = _viewModel.obtenerVehiculos().listen(
+      (vehiculos) {
+        if (!mounted) return;
+
+        setState(() {
+          _vehiculos = vehiculos;
+          _cargandoVehiculos = false;
+          _errorVehiculos = null;
+
+          if (_vehiculos.isNotEmpty &&
+              !_vehiculos.any((vehiculo) => vehiculo.uid == _vehiculoUid)) {
+            _vehiculoUid = _vehiculos.first.uid;
+          }
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+
+        setState(() {
+          _cargandoVehiculos = false;
+          _errorVehiculos =
+              'No se pudieron cargar los vehículos. Revisa tu conexión.';
+        });
+      },
+    );
   }
 
   @override
   void dispose() {
+    _suscripcionVehiculos?.cancel();
     _viewModel.dispose();
     super.dispose();
+  }
+
+  Future<void> _abrirFormulario() async {
+    if (_cargandoVehiculos) {
+      _mostrarMensaje('Espera mientras se cargan los vehículos.');
+      return;
+    }
+
+    final vehiculosDisponibles = _vehiculos
+        .where((vehiculo) => vehiculo.uid.trim().isNotEmpty)
+        .toList();
+
+    if (vehiculosDisponibles.isEmpty) {
+      _mostrarMensaje(
+        _errorVehiculos ?? 'No hay vehículos para registrar kilometraje.',
+        esError: true,
+      );
+      return;
+    }
+
+    VehiculoModel vehiculoSeleccionado = vehiculosDisponibles.first;
+
+    for (final vehiculo in vehiculosDisponibles) {
+      if (vehiculo.uid == _vehiculoUid) {
+        vehiculoSeleccionado = vehiculo;
+        break;
+      }
+    }
+
+    final resultado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => FormKilometrajeView(
+          vehiculos: vehiculosDisponibles,
+          vehiculoUidInicial: vehiculoSeleccionado.uid,
+        ),
+      ),
+    );
+
+    if (!mounted || resultado != true) return;
+
+    _mostrarMensaje('El registro de kilometraje se guardó correctamente.');
+  }
+
+  void _mostrarMensaje(String texto, {bool esError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(texto),
+          backgroundColor: esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   String _formatearFecha(DateTime fecha) {
@@ -56,18 +153,30 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
+  String _formatearKilometraje(int kilometraje) {
+    return kilometraje.toString().replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (coincidencia) => '${coincidencia[1]},',
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final vehiculos = widget.vehiculos
+    final vehiculosDisponibles = _vehiculos
         .where((vehiculo) => vehiculo.uid.trim().isNotEmpty)
         .toList();
 
-    final vehiculoSeleccionado = vehiculos.firstWhere(
-      (vehiculo) => vehiculo.uid == _vehiculoUid,
-      orElse: () => vehiculos.isEmpty
-          ? _vehiculoVacio()
-          : vehiculos.first,
-    );
+    VehiculoModel? vehiculoSeleccionado;
+
+    for (final vehiculo in vehiculosDisponibles) {
+      if (vehiculo.uid == _vehiculoUid) {
+        vehiculoSeleccionado = vehiculo;
+        break;
+      }
+    }
+
+    vehiculoSeleccionado ??=
+        vehiculosDisponibles.isEmpty ? null : vehiculosDisponibles.first;
 
     return Scaffold(
       backgroundColor: AppTheme.pearlWhite,
@@ -80,82 +189,119 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         ),
       ),
       body: SafeArea(
-        child: vehiculos.isEmpty
-            ? _vistaSinVehiculos()
-            : StreamBuilder<List<KilometrajeModel>>(
-                stream: _viewModel.obtenerRegistros(
-                  vehiculoUid: vehiculoSeleccionado.uid,
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Center(
-                      child: Text(
-                        'No se pudieron cargar los registros. '
-                        'Revisa tu conexión.',
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  }
-
-                  final registros = snapshot.data ?? [];
-
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                          children: [
-                            _selectorVehiculo(vehiculos),
-                            const SizedBox(height: 14),
-                            _resumenKilometraje(
-                              vehiculoSeleccionado,
-                              registros,
-                            ),
-                            const SizedBox(height: 14),
-                            if (snapshot.connectionState ==
-                                    ConnectionState.waiting &&
-                                !snapshot.hasData)
-                              const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
-                            else if (registros.isEmpty)
-                              _vistaSinRegistros(vehiculoSeleccionado)
-                            else
-                              ...registros.map(_tarjetaRegistro),
-                          ],
+        child: _cargandoVehiculos
+            ? const Center(child: CircularProgressIndicator())
+            : _errorVehiculos != null
+                ? _estadoVacio(
+                    icono: Icons.cloud_off_outlined,
+                    mensaje: _errorVehiculos!,
+                  )
+                : vehiculoSeleccionado == null
+                    ? _estadoVacio(
+                        icono: Icons.local_shipping_outlined,
+                        mensaje:
+                            'No hay vehículos disponibles para consultar el kilometraje.',
+                      )
+                    : StreamBuilder<List<KilometrajeModel>>(
+                        stream: _viewModel.obtenerRegistros(
+                          vehiculoUid: vehiculoSeleccionado.uid,
                         ),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return _estadoVacio(
+                              icono: Icons.cloud_off_outlined,
+                              mensaje:
+                                  'No se pudieron cargar los registros. '
+                                  'Revisa tu conexión.',
+                            );
+                          }
+
+                          final registros = snapshot.data ?? [];
+
+                          return ListView(
+                            padding: const EdgeInsets.fromLTRB(
+                              16,
+                              20,
+                              16,
+                              100,
+                            ),
+                            children: [
+                              _selectorVehiculo(vehiculosDisponibles),
+                              const SizedBox(height: 14),
+                              _resumenKilometraje(
+                                vehiculoSeleccionado!,
+                                registros,
+                              ),
+                              const SizedBox(height: 14),
+                              if (snapshot.connectionState ==
+                                      ConnectionState.waiting &&
+                                  !snapshot.hasData)
+                                const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else if (registros.isEmpty)
+                                _vistaSinRegistros(vehiculoSeleccionado)
+                              else
+                                ...registros.map(_tarjetaRegistro),
+                            ],
+                          );
+                        },
                       ),
-                    ],
-                  );
-                },
-              ),
       ),
-      floatingActionButton: vehiculos.isEmpty
-          ? null
-          : FloatingActionButton.extended(
-              backgroundColor: AppTheme.accentYellow,
-              foregroundColor: Colors.black,
-              icon: const Icon(Icons.add),
-              label: const Text(
-                'Registrar km',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onPressed: () {
-                Navigator.of(context).pushNamed(
-                  '/form_kilometraje',
-                  arguments: vehiculoSeleccionado,
-                );
-              },
+      // El botón permanece visible. Si aún no hay vehículos,
+      // _abrirFormulario muestra un mensaje explicando el problema.
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _abrirFormulario,
+        backgroundColor: AppTheme.accentYellow,
+        foregroundColor: Colors.black87,
+        icon: const Icon(Icons.add),
+        label: const Text(
+          'Registrar km',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _estadoVacio({
+    required IconData icono,
+    required String mensaje,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icono,
+              size: 48,
+              color: AppTheme.secondaryText,
             ),
+            const SizedBox(height: 14),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.secondaryText),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _selectorVehiculo(List<VehiculoModel> vehiculos) {
+    final valorSeleccionado = vehiculos.any(
+      (vehiculo) => vehiculo.uid == _vehiculoUid,
+    )
+        ? _vehiculoUid
+        : vehiculos.first.uid;
+
     return DropdownButtonFormField<String>(
-      value: _vehiculoUid,
+      value: valorSeleccionado,
       isExpanded: true,
       decoration: const InputDecoration(
         prefixIcon: Icon(Icons.local_shipping_outlined),
@@ -172,11 +318,11 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         );
       }).toList(),
       onChanged: (valor) {
-        if (valor != null) {
-          setState(() {
-            _vehiculoUid = valor;
-          });
-        }
+        if (valor == null) return;
+
+        setState(() {
+          _vehiculoUid = valor;
+        });
       },
     );
   }
@@ -190,6 +336,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         : vehiculo.kilometrajeActual;
 
     int variacion = 0;
+
     if (registros.length > 1) {
       variacion =
           registros.first.kilometrajeFinal - registros.last.kilometrajeFinal;
@@ -222,7 +369,8 @@ class _KilometrajeViewState extends State<KilometrajeView> {
             ),
           ),
           const SizedBox(height: 4),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Icon(
                 Icons.speed_outlined,
@@ -335,36 +483,6 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         textAlign: TextAlign.center,
         style: const TextStyle(color: AppTheme.secondaryText),
       ),
-    );
-  }
-
-  Widget _vistaSinVehiculos() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'No hay vehículos disponibles para consultar el kilometraje.',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  String _formatearKilometraje(int kilometraje) {
-    return kilometraje.toString().replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (coincidencia) => '${coincidencia[1]},',
-        );
-  }
-
-  VehiculoModel _vehiculoVacio() {
-    return const VehiculoModel(
-      uid: '',
-      placas: '',
-      numeroEconomico: '',
-      marca: '',
-      modelo: '',
-      anio: 0,
     );
   }
 }

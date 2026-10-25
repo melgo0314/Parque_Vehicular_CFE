@@ -226,7 +226,7 @@ exports.eliminarUsuario = onCall(async (request) => {
         .file(`licencias/${uid}.jpg`)
         .delete({ ignoreNotFound: true });
     } catch (errorStorage) {
-      // La cuenta y el perfil ya se eliminaron; registrar si falla la limpieza.
+      // La cuenta y el perfil ya se eliminaron
       console.error('No se pudo borrar la foto de licencia:', errorStorage);
     }
 

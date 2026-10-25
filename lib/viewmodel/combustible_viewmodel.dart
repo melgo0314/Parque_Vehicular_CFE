@@ -109,7 +109,6 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
-  /// La lista debe estar ordenada de la carga más reciente a la más antigua.
   double? calcularRendimientoKmL(
     List<CombustibleModel> cargas,
     int indiceActual,
@@ -170,7 +169,6 @@ class CombustibleViewModel extends ChangeNotifier {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'permission-denied':
-          return 'No tienes permiso para realizar esta acción.';
         case 'unauthenticated':
           return 'Tu sesión venció. Inicia sesión nuevamente.';
         case 'unavailable':

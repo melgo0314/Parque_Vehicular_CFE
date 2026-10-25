@@ -141,7 +141,12 @@ class AdminHomeView extends StatelessWidget {
                               context,
                               Icons.build_circle_outlined,
                               'Mantenimientos',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.mantenimiento,
+                                );
+                              },
                             ),
                             _tarjetaModulo(
                               context,

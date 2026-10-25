@@ -23,11 +23,12 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       initialRoute: AppRoutes.login,
-      routes: AppRoutes.routes,
+      onGenerateRoute: AppRoutes.onGenerateRoute,
       builder: (context, child) {
-        return SessionTimeoutListener(child: child!);
+        return SessionTimeoutListener(
+          child: child ?? const SizedBox.shrink(),
+        );
       },
     );
-  
   }
 }

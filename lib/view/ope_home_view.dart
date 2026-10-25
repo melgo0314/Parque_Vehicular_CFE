@@ -467,7 +467,9 @@ class OpeHomeView extends StatelessWidget {
         _tarjetaModulo(
           'Mantenimientos',
           Icons.build_circle_outlined,
-          () {},
+          () {
+            Navigator.pushNamed(context, AppRoutes.mantenimiento);
+          },
         ),
         _tarjetaModulo(
           'Inventario',

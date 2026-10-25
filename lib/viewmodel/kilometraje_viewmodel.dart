@@ -1,12 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/models/vehiculos_model.dart';
+import 'package:p_vehicular/repositories/vehiculo_repositorie.dart';
 
 import '../models/kilometraje_model.dart';
 import '../repositories/kilometraje_repositorie.dart';
 
 class KilometrajeViewModel extends ChangeNotifier {
-  final KilometrajeRepositorie _repositorio = KilometrajeRepositorie();
+  final KilometrajeRepositorie _repositorio;
+  final VehiculoRepositorie _vehiculoRepositorio;
 
+  KilometrajeViewModel({
+    KilometrajeRepositorie? repositorio,
+    VehiculoRepositorie? vehiculoRepositorio,
+  }) : _repositorio = repositorio ?? KilometrajeRepositorie(),
+       _vehiculoRepositorio = vehiculoRepositorio ?? VehiculoRepositorie();
   bool _cargando = false;
   String? _mensajeError;
   String? _mensajeExito;
@@ -14,6 +22,12 @@ class KilometrajeViewModel extends ChangeNotifier {
   bool get cargando => _cargando;
   String? get mensajeError => _mensajeError;
   String? get mensajeExito => _mensajeExito;
+
+ 
+
+  Stream<List<VehiculoModel>> obtenerVehiculos() {
+    return _vehiculoRepositorio.obtenerVehiculos();
+  }
 
   // Obtiene los registros. Si se indica un vehículo, filtra por ese vehículo.
   Stream<List<KilometrajeModel>> obtenerRegistros({
@@ -162,4 +176,6 @@ class KilometrajeViewModel extends ChangeNotifier {
     _cargando = false;
     notifyListeners();
   }
+
+  
 }

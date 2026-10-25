@@ -36,6 +36,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
   int _ultimoKilometraje = 0;
   bool _cargandoKilometraje = false;
   bool _guardando = false;
+  bool _intentoGuardar = false;
 
   List<VehiculoModel> get _vehiculosDisponibles {
     return widget.vehiculos
@@ -111,8 +112,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
           _ultimoKilometraje = ultimo;
           _cargandoKilometraje = false;
         });
-
-        _formKey.currentState?.validate();
       },
       onError: (_) {
         if (!mounted) return;
@@ -183,6 +182,12 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
 
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
+
+    // Desde este primer intento, la validación se muestra y se actualiza
+    // mientras la persona corrige los campos.
+    setState(() {
+      _intentoGuardar = true;
+    });
 
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -261,10 +266,11 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
   }
 
   Widget _contenidoFormulario() {
-    final vehiculo = _vehiculoSeleccionado;
-
     return Form(
       key: _formKey,
+      autovalidateMode: _intentoGuardar
+          ? AutovalidateMode.onUserInteraction
+          : AutovalidateMode.disabled,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -277,7 +283,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             ),
           ),
           const SizedBox(height: 20),
-
           const Text(
             'Vehículo',
             style: TextStyle(
@@ -322,7 +327,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
               return null;
             },
           ),
-
           const SizedBox(height: 16),
           const Text(
             'Fecha',
@@ -342,7 +346,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
               child: Text(_formatearFecha(_fecha)),
             ),
           ),
-
           const SizedBox(height: 16),
           const Text(
             'Kilometraje',
@@ -360,7 +363,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
             ],
-            autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: const InputDecoration(
               hintText: 'Ingresa la lectura actual',
               suffixText: 'km',
@@ -378,7 +380,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
               fontSize: 13,
             ),
           ),
-
           const SizedBox(height: 16),
           TextFormField(
             controller: _observacionesController,
@@ -393,7 +394,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
               alignLabelWithHint: true,
             ),
           ),
-
           const SizedBox(height: 20),
           SizedBox(
             height: 56,
@@ -423,10 +423,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
               child: const Text('Cancelar'),
             ),
           ),
-
-          // El parámetro se usa para que el dropdown pueda actualizar
-          // el vehículo seleccionado cuando se cambia.
-          if (vehiculo == null) const SizedBox.shrink(),
         ],
       ),
     );
@@ -442,7 +438,9 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
           foregroundColor: AppTheme.pureWhite,
           title: const Text('Registrar kilometraje'),
         ),
-        body: SafeArea(child: _vistaSinVehiculos()),
+        body: SafeArea(
+          child: _vistaSinVehiculos(),
+        ),
       );
     }
 

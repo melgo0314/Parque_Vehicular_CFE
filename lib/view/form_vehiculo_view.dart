@@ -25,6 +25,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
   final _marcaController = TextEditingController();
   final _modeloController = TextEditingController();
   final _anioController = TextEditingController();
+  final _intervaloPreventivoController = TextEditingController(text: '5000');
 
   String _estadoOperativo = 'operativo';
   bool _guardando = false;
@@ -45,6 +46,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       _modeloController.text = vehiculo.modelo;
       _anioController.text = vehiculo.anio.toString();
       _estadoOperativo = vehiculo.estadoOperativo;
+      _intervaloPreventivoController.text =
+        vehiculo.intervaloPreventivoKm.toString();
     }
   }
 
@@ -55,6 +58,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     _marcaController.dispose();
     _modeloController.dispose();
     _anioController.dispose();
+    _intervaloPreventivoController.dispose();
     _viewModel.dispose();
     super.dispose();
   }
@@ -82,6 +86,20 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     return null;
   }
 
+  String? _validarIntervalo(String? valor) {
+    if (valor == null || valor.trim().isEmpty) {
+      return 'Escribe el intervalo preventivo.';
+    }
+
+    final intervalo = int.tryParse(valor.trim());
+
+    if (intervalo == null || intervalo <= 0) {
+      return 'El intervalo debe ser un número mayor que cero.';
+    }
+
+    return null;
+  }
+
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
@@ -101,6 +119,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       estado: vehiculoOriginal?.estado ?? 'activo',
       estadoOperativo: _estadoOperativo,
       kilometrajeActual: vehiculoOriginal?.kilometrajeActual ?? 0,
+      intervaloPreventivoKm:
+          int.parse(_intervaloPreventivoController.text.trim()),
+      operadorUidActual: vehiculoOriginal?.operadorUidActual ?? '',
     );
 
     setState(() {
@@ -231,6 +252,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     TextInputType tipoTeclado = TextInputType.text,
     String? hint,
     TextCapitalization capitalizacion = TextCapitalization.words,
+    String? sufijo,
   }) {
     return TextFormField(
       controller: controller,
@@ -242,6 +264,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
         labelText: etiqueta,
         hintText: hint,
         prefixIcon: Icon(icono),
+        suffixText: sufijo,
       ),
     );
   }
@@ -346,6 +369,25 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                                 tipoTeclado: TextInputType.number,
                                 capitalizacion: TextCapitalization.none,
                                 validar: _validarAnio,
+                              ),
+                              const SizedBox(height: 14),
+                              _campo(
+                                controller: _intervaloPreventivoController,
+                                etiqueta: 'Intervalo de mantenimiento preventivo',
+                                icono: Icons.build_circle_outlined,
+                                tipoTeclado: TextInputType.number,
+                                capitalizacion: TextCapitalization.none,
+                                sufijo: 'km',
+                                validar: _validarIntervalo,
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Kilómetros entre cada servicio preventivo. '
+                                'El valor inicial es 5,000 km y puedes ajustarlo.',
+                                style: TextStyle(
+                                  color: AppTheme.secondaryText,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 14),
                               DropdownButtonFormField<String>(

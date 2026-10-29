@@ -31,7 +31,7 @@ class AsignacionRepositorie {
     return _asignaciones.snapshots().map((consulta) {
       final termino = busqueda.trim().toLowerCase();
 
-      final asignaciones = consulta.docs
+      final lista = consulta.docs
           .map(
             (documento) => AsignacionModel.fromMap(
               documento.data(),
@@ -39,40 +39,35 @@ class AsignacionRepositorie {
             ),
           )
           .where((asignacion) {
-            final coincideEstado =
-                estado == 'todas' ||
-                asignacion.estado.toLowerCase() == estado.toLowerCase();
+        final coincideEstado = estado == 'todas' ||
+            asignacion.estado.toLowerCase() == estado.toLowerCase();
 
-            final texto = [
-              asignacion.operadorNombre,
-              asignacion.vehiculoPlacas,
-              asignacion.vehiculoNumeroEconomico,
-              asignacion.vehiculoTipo,
-              asignacion.motivoTemporal,
-            ].join(' ').toLowerCase();
+        final texto = [
+          asignacion.operadorNombre,
+          asignacion.vehiculoPlacas,
+          asignacion.vehiculoNumeroEconomico,
+          asignacion.vehiculoTipo,
+          asignacion.motivoTemporal,
+        ].join(' ').toLowerCase();
 
-            return coincideEstado &&
-                (termino.isEmpty || texto.contains(termino));
-          })
-          .toList();
+        return coincideEstado &&
+            (termino.isEmpty || texto.contains(termino));
+      }).toList();
 
-      asignaciones.sort(
-        (a, b) => b.fechaInicio.compareTo(a.fechaInicio),
-      );
-
-      return asignaciones;
+      lista.sort((a, b) => b.fechaInicio.compareTo(a.fechaInicio));
+      return lista;
     });
   }
 
   Future<List<UserModel>> obtenerOperadoresDisponibles({
     String? excluirAsignacionUid,
   }) async {
-    final usuariosSnapshot = await _usuarios.get();
-    final asignacionesSnapshot = await _asignaciones.get();
+    final usuarios = await _usuarios.get();
+    final asignaciones = await _asignaciones.get();
 
     final operadoresOcupados = <String>{};
 
-    for (final documento in asignacionesSnapshot.docs) {
+    for (final documento in asignaciones.docs) {
       if (documento.id == excluirAsignacionUid) continue;
 
       final asignacion = AsignacionModel.fromMap(
@@ -85,7 +80,7 @@ class AsignacionRepositorie {
       }
     }
 
-    final operadores = usuariosSnapshot.docs
+    final resultado = usuarios.docs
         .where((documento) {
           final rol =
               (documento.data()['rol'] ?? '').toString().trim().toLowerCase();
@@ -101,24 +96,38 @@ class AsignacionRepositorie {
         )
         .toList();
 
-    operadores.sort(
+    resultado.sort(
       (a, b) => a.nombreCompleto.toLowerCase().compareTo(
             b.nombreCompleto.toLowerCase(),
           ),
     );
 
-    return operadores;
+    return resultado;
   }
 
   Future<List<VehiculoModel>> obtenerVehiculosDisponibles({
     String? excluirAsignacionUid,
   }) async {
-    final vehiculosSnapshot = await _vehiculos.get();
-    final asignacionesSnapshot = await _asignaciones.get();
+    final documentosVehiculos = await _vehiculos.get();
+    final documentosAsignaciones = await _asignaciones.get();
+
+    AsignacionModel? asignacionExcluida;
+
+    if (excluirAsignacionUid != null) {
+      for (final documento in documentosAsignaciones.docs) {
+        if (documento.id == excluirAsignacionUid) {
+          asignacionExcluida = AsignacionModel.fromMap(
+            documento.data(),
+            documento.id,
+          );
+          break;
+        }
+      }
+    }
 
     final vehiculosOcupados = <String>{};
 
-    for (final documento in asignacionesSnapshot.docs) {
+    for (final documento in documentosAsignaciones.docs) {
       if (documento.id == excluirAsignacionUid) continue;
 
       final asignacion = AsignacionModel.fromMap(
@@ -131,25 +140,28 @@ class AsignacionRepositorie {
       }
     }
 
-    final vehiculos = vehiculosSnapshot.docs
+    final resultado = documentosVehiculos.docs
         .map(
           (documento) => VehiculoModel.fromMap(
             documento.data(),
             documento.id,
           ),
         )
-        .where(
-          (vehiculo) =>
-              vehiculo.estaActivo &&
-              !vehiculosOcupados.contains(vehiculo.uid),
-        )
+        .where((vehiculo) {
+          final esElVehiculoActual =
+              asignacionExcluida?.vehiculoUid == vehiculo.uid;
+
+          return vehiculo.estaActivo &&
+              !vehiculosOcupados.contains(vehiculo.uid) &&
+              (!vehiculo.tieneOperadorAsignado || esElVehiculoActual);
+        })
         .toList();
 
-    vehiculos.sort(
+    resultado.sort(
       (a, b) => a.placas.toLowerCase().compareTo(b.placas.toLowerCase()),
     );
 
-    return vehiculos;
+    return resultado;
   }
 
   Future<void> crearAsignacion({
@@ -192,8 +204,8 @@ class AsignacionRepositorie {
   Future<void> finalizarAsignacion(String uidAsignacion) async {
     await _obtenerAdministradorUid();
 
-    final referencia = _asignaciones.doc(uidAsignacion);
-    final documento = await referencia.get();
+    final referenciaAsignacion = _asignaciones.doc(uidAsignacion.trim());
+    final documento = await referenciaAsignacion.get();
 
     if (!documento.exists || documento.data() == null) {
       throw StateError('La asignación ya no existe.');
@@ -208,11 +220,35 @@ class AsignacionRepositorie {
       throw StateError('Esta asignación ya está finalizada.');
     }
 
-    await referencia.update({
+    final referenciaVehiculo = _vehiculos.doc(asignacion.vehiculoUid);
+    final documentoVehiculo = await referenciaVehiculo.get();
+
+    final lote = _db.batch();
+
+    lote.update(referenciaAsignacion, {
       'fechaFin': Timestamp.fromDate(DateTime.now()),
       'estado': 'finalizada',
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
+
+    // Quita el operador solo si este vehículo todavía lo tiene asignado.
+    if (documentoVehiculo.exists) {
+      final datosVehiculo = documentoVehiculo.data() ?? {};
+      final operadorActual = (datosVehiculo['operadorUidActual'] ??
+              datosVehiculo['operadorUid'] ??
+              '')
+          .toString()
+          .trim();
+
+      if (operadorActual == asignacion.operadorUid) {
+        lote.update(referenciaVehiculo, {
+          'operadorUidActual': FieldValue.delete(),
+          'actualizadoEn': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await lote.commit();
   }
 
   Future<void> _guardarAsignacion({
@@ -228,7 +264,7 @@ class AsignacionRepositorie {
     final operadorId = operadorUid.trim();
     final vehiculoId = vehiculoUid.trim();
     final tipoNormalizado = tipo.trim().toLowerCase();
-    final motivoNormalizado = motivoTemporal.trim();
+    final motivo = motivoTemporal.trim();
 
     if (operadorId.isEmpty) {
       throw ArgumentError('Selecciona un operador.');
@@ -241,10 +277,6 @@ class AsignacionRepositorie {
     if (tipoNormalizado != 'permanente' &&
         tipoNormalizado != 'temporal') {
       throw ArgumentError('Selecciona el tipo de asignación.');
-    }
-
-    if (fechaInicio.isAfter(DateTime.now())) {
-      throw ArgumentError('La fecha de inicio no puede ser futura.');
     }
 
     if (tipoNormalizado == 'temporal') {
@@ -260,10 +292,8 @@ class AsignacionRepositorie {
         );
       }
 
-      if (motivoNormalizado.isEmpty) {
-        throw ArgumentError(
-          'Escribe el motivo de la asignación temporal.',
-        );
+      if (motivo.isEmpty) {
+        throw ArgumentError('Escribe el motivo de la asignación temporal.');
       }
     }
 
@@ -295,6 +325,29 @@ class AsignacionRepositorie {
       throw StateError('No se puede asignar un vehículo dado de baja.');
     }
 
+    final referenciaAsignacion = uidAsignacion == null
+        ? _asignaciones.doc()
+        : _asignaciones.doc(uidAsignacion);
+
+    AsignacionModel? asignacionAnterior;
+
+    if (uidAsignacion != null) {
+      final documentoAnterior = await referenciaAsignacion.get();
+
+      if (!documentoAnterior.exists || documentoAnterior.data() == null) {
+        throw StateError('La asignación que intentas editar ya no existe.');
+      }
+
+      asignacionAnterior = AsignacionModel.fromMap(
+        documentoAnterior.data()!,
+        documentoAnterior.id,
+      );
+
+      if (!asignacionAnterior.estaActiva) {
+        throw StateError('No se puede editar una asignación finalizada.');
+      }
+    }
+
     for (final documento in asignacionesSnapshot.docs) {
       if (documento.id == uidAsignacion) continue;
 
@@ -318,6 +371,23 @@ class AsignacionRepositorie {
       }
     }
 
+    final operadorEnVehiculo = (vehiculoDoc.data()?['operadorUidActual'] ??
+            vehiculoDoc.data()?['operadorUid'] ??
+            '')
+        .toString()
+        .trim();
+
+    final esMismoVehiculoDeLaEdicion =
+        asignacionAnterior?.vehiculoUid == vehiculoId;
+
+    if (operadorEnVehiculo.isNotEmpty &&
+        operadorEnVehiculo != operadorId &&
+        !esMismoVehiculoDeLaEdicion) {
+      throw StateError(
+        'El vehículo ya tiene un operador asignado. Finaliza esa asignación primero.',
+      );
+    }
+
     final nombreOperador = [
       operadorDatos['nombre'],
       operadorDatos['apellidoP'],
@@ -331,9 +401,9 @@ class AsignacionRepositorie {
         '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
 
     final asignacion = AsignacionModel(
-      uid: uidAsignacion ?? '',
+      uid: referenciaAsignacion.id,
       vehiculoUid: vehiculo.uid,
-      operadorUid: operadorDoc.id,
+      operadorUid: operadorId,
       administradorUid: administradorUid,
       operadorNombre: nombreOperador,
       vehiculoPlacas: vehiculo.placas,
@@ -342,35 +412,51 @@ class AsignacionRepositorie {
       fechaInicio: fechaInicio,
       fechaFin: tipoNormalizado == 'temporal' ? fechaFin : null,
       tipo: tipoNormalizado,
-      motivoTemporal:
-          tipoNormalizado == 'temporal' ? motivoNormalizado : '',
+      motivoTemporal: tipoNormalizado == 'temporal' ? motivo : '',
       estado: tipoNormalizado == 'temporal' ? 'temporal' : 'vigente',
     );
 
-    final datos = asignacion.toMap()
+    final datosAsignacion = asignacion.toMap()
       ..['actualizadoEn'] = FieldValue.serverTimestamp();
 
+    final lote = _db.batch();
+
     if (uidAsignacion == null) {
-      datos['creadoEn'] = FieldValue.serverTimestamp();
-      await _asignaciones.add(datos);
+      datosAsignacion['creadoEn'] = FieldValue.serverTimestamp();
+      lote.set(referenciaAsignacion, datosAsignacion);
     } else {
-      final documentoActual = await _asignaciones.doc(uidAsignacion).get();
-
-      if (!documentoActual.exists) {
-        throw StateError('La asignación que intentas editar ya no existe.');
-      }
-
-      final actual = AsignacionModel.fromMap(
-        documentoActual.data() ?? {},
-        documentoActual.id,
-      );
-
-      if (!actual.estaActiva) {
-        throw StateError('No se puede editar una asignación finalizada.');
-      }
-
-      await _asignaciones.doc(uidAsignacion).update(datos);
+      lote.update(referenciaAsignacion, datosAsignacion);
     }
+
+    // El módulo Asignaciones es quien actualiza al operador actual del vehículo.
+    lote.update(_vehiculos.doc(vehiculoId), {
+      'operadorUidActual': operadorId,
+      'actualizadoEn': FieldValue.serverTimestamp(),
+    });
+
+    // Si al editar se cambió de vehículo, se libera la unidad anterior.
+    if (asignacionAnterior != null &&
+        asignacionAnterior.vehiculoUid != vehiculoId) {
+      final referenciaVehiculoAnterior =
+          _vehiculos.doc(asignacionAnterior.vehiculoUid);
+      final documentoAnterior = await referenciaVehiculoAnterior.get();
+
+      final operadorAnterior = (documentoAnterior.data()?['operadorUidActual'] ??
+              documentoAnterior.data()?['operadorUid'] ??
+              '')
+          .toString()
+          .trim();
+
+      if (documentoAnterior.exists &&
+          operadorAnterior == asignacionAnterior.operadorUid) {
+        lote.update(referenciaVehiculoAnterior, {
+          'operadorUidActual': FieldValue.delete(),
+          'actualizadoEn': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await lote.commit();
   }
 
   Future<String> _obtenerAdministradorUid() async {

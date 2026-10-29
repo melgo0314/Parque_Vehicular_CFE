@@ -127,7 +127,7 @@ class _LoginViewState extends State<LoginView> {
                 constraints: BoxConstraints(minHeight: altoMinimo),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
+                    constraints: const BoxConstraints(maxWidth: 700),
                     child: Card(
                       color: AppTheme.pureWhite,
                       elevation: 2,
@@ -143,18 +143,15 @@ class _LoginViewState extends State<LoginView> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text(
-                                'PARQUE VEHICULAR',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(
-                                      color: AppTheme.cfeGreen,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                              Center(
+                                child: Image.asset(
+                                  'lib/core/images/logo.png',
+                                  height: 150,
+                                  width: 300,
+                                  fit: BoxFit.contain,
+                                ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Text(
                                 'Distribución Civac - Zona Morelos',
                                 textAlign: TextAlign.center,
@@ -204,8 +201,7 @@ class _LoginViewState extends State<LoginView> {
                                 onFieldSubmitted: (_) => _iniciarSesion(),
                                 decoration: InputDecoration(
                                   labelText: 'Contraseña',
-                                  prefixIcon:
-                                      const Icon(Icons.lock_outline),
+                                  prefixIcon: const Icon(Icons.lock_outline),
                                   suffixIcon: IconButton(
                                     tooltip: _ocultarContrasena
                                         ? 'Mostrar contraseña'
@@ -262,8 +258,7 @@ class _LoginViewState extends State<LoginView> {
                                           ? const SizedBox(
                                               width: 20,
                                               height: 20,
-                                              child:
-                                                  CircularProgressIndicator(
+                                              child: CircularProgressIndicator(
                                                 strokeWidth: 2,
                                                 color: AppTheme.pureWhite,
                                               ),

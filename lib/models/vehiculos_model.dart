@@ -8,6 +8,8 @@ class VehiculoModel {
   final String estado;
   final String estadoOperativo;
   final int kilometrajeActual;
+  final int intervaloPreventivoKm;
+  final String operadorUidActual;
 
   const VehiculoModel({
     required this.uid,
@@ -19,9 +21,13 @@ class VehiculoModel {
     this.estado = 'activo',
     this.estadoOperativo = 'operativo',
     this.kilometrajeActual = 0,
+    this.intervaloPreventivoKm = 5000,
+    this.operadorUidActual = '',
   });
 
-  bool get estaActivo => estado.toLowerCase() == 'activo';
+  bool get estaActivo => estado.trim().toLowerCase() == 'activo';
+
+  bool get tieneOperadorAsignado => operadorUidActual.trim().isNotEmpty;
 
   factory VehiculoModel.fromMap(
     Map<String, dynamic> map,
@@ -47,6 +53,13 @@ class VehiculoModel {
       kilometrajeActual: _entero(
         map['kilometrajeActual'] ?? map['kilometraje'],
       ),
+      intervaloPreventivoKm: _entero(
+        map['intervaloPreventivoKm'],
+        valorPredeterminado: 5000,
+      ),
+      operadorUidActual: _texto(
+        map['operadorUidActual'] ?? map['operadorUid'],
+      ),
     );
   }
 
@@ -60,6 +73,7 @@ class VehiculoModel {
       'estado': estado.trim().toLowerCase(),
       'estadoOperativo': estadoOperativo.trim().toLowerCase(),
       'kilometrajeActual': kilometrajeActual,
+      'intervaloPreventivoKm': intervaloPreventivoKm,
     };
   }
 
@@ -72,6 +86,8 @@ class VehiculoModel {
     String? estado,
     String? estadoOperativo,
     int? kilometrajeActual,
+    int? intervaloPreventivoKm,
+    String? operadorUidActual,
   }) {
     return VehiculoModel(
       uid: uid,
@@ -82,8 +98,10 @@ class VehiculoModel {
       anio: anio ?? this.anio,
       estado: estado ?? this.estado,
       estadoOperativo: estadoOperativo ?? this.estadoOperativo,
-      kilometrajeActual:
-        kilometrajeActual ?? this.kilometrajeActual,
+      kilometrajeActual: kilometrajeActual ?? this.kilometrajeActual,
+      intervaloPreventivoKm:
+          intervaloPreventivoKm ?? this.intervaloPreventivoKm,
+      operadorUidActual: operadorUidActual ?? this.operadorUidActual,
     );
   }
 
@@ -95,9 +113,13 @@ class VehiculoModel {
     return valor.toString().trim();
   }
 
-  static int _entero(dynamic valor) {
+  static int _entero(
+    dynamic valor, {
+    int valorPredeterminado = 0,
+  }) {
     if (valor is int) return valor;
     if (valor is num) return valor.toInt();
-    return int.tryParse(valor?.toString() ?? '') ?? 0;
+
+    return int.tryParse(valor?.toString() ?? '') ?? valorPredeterminado;
   }
 }

@@ -1,7 +1,7 @@
-import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
@@ -22,7 +22,6 @@ class FormUsuarioView extends StatefulWidget {
 class _FormUsuarioViewState extends State<FormUsuarioView> {
   final _formKey = GlobalKey<FormState>();
   final _viewModel = UsuariosViewModel();
-  final _selectorImagen = ImagePicker();
 
   final _nombreController = TextEditingController();
   final _correoController = TextEditingController();
@@ -31,7 +30,8 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
   final _telefonoController = TextEditingController();
 
   String _rol = 'operador';
-  File? _fotoLicencia;
+  PlatformFile? _archivoLicencia;
+  Uint8List? _bytesLicencia;
   bool _mostrarContrasena = false;
   bool _guardando = false;
   bool _eliminando = false;
@@ -126,26 +126,43 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
 
   Future<void> _seleccionarLicencia() async {
     try {
-      final imagen = await _selectorImagen.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-        maxWidth: 1600,
-        maxHeight: 1600,
+      final archivo = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
       );
 
-      if (imagen != null && mounted) {
-        setState(() {
-          _fotoLicencia = File(imagen.path);
-        });
-      }
-    } catch (error) {
-      debugPrint('No se pudo abrir la cámara: $error');
+      if (archivo == null) return;
 
+      final bytes = await archivo.readAsBytes();
+
+      if (bytes.isEmpty) {
+        _mostrarMensaje(
+          'El archivo seleccionado está vacío.',
+          error: true,
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _archivoLicencia = archivo;
+        _bytesLicencia = bytes;
+      });
+    } catch (error) {
+      debugPrint('Error al seleccionar la licencia: $error');
       _mostrarMensaje(
-        'No se pudo abrir la cámara. Revisa los permisos del dispositivo.',
+        'No se pudo leer el archivo. Intenta seleccionarlo de nuevo.',
         error: true,
       );
     }
+  }
+
+  void _quitarLicencia() {
+    setState(() {
+      _archivoLicencia = null;
+      _bytesLicencia = null;
+    });
   }
 
   Future<void> _guardar() async {
@@ -155,9 +172,11 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
       return;
     }
 
-    if (!_esEdicion && _rol == 'operador' && _fotoLicencia == null) {
+    if (!_esEdicion &&
+        _rol == 'operador' &&
+        (_archivoLicencia == null || _bytesLicencia == null)) {
       _mostrarMensaje(
-        'Toma una fotografía de la licencia del operador.',
+        'Selecciona el documento de licencia del operador.',
         error: true,
       );
       return;
@@ -197,7 +216,8 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
         rol: _rol,
         rpe: _rpeController.text.trim(),
         telefono: _telefonoController.text.trim(),
-        fotoLicencia: _fotoLicencia,
+        archivoLicencia: _bytesLicencia,
+        nombreArchivoLicencia: _archivoLicencia?.name,
       );
     }
 
@@ -335,6 +355,84 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     );
   }
 
+  Widget _vistaDocumentoSeleccionado() {
+    final archivo = _archivoLicencia;
+    final bytes = _bytesLicencia;
+
+    if (archivo == null || bytes == null) {
+      return const SizedBox.shrink();
+    }
+
+    final extension = archivo.extension?.toLowerCase() ?? '';
+    final esPdf = extension == 'pdf';
+
+    if (esPdf) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.picture_as_pdf,
+              color: Colors.red,
+              size: 32,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                archivo.name,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Quitar documento',
+              onPressed: _guardando ? null : _quitarLicencia,
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            bytes,
+            height: 180,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 120,
+                alignment: Alignment.center,
+                color: AppTheme.roleSurface,
+                child: const Text('No se pudo mostrar la imagen.'),
+              );
+            },
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: _guardando ? null : _quitarLicencia,
+            icon: const Icon(Icons.close),
+            label: const Text('Quitar imagen'),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final titulo = _esEdicion ? 'Editar usuario' : 'Nuevo usuario';
@@ -427,13 +525,13 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                               child: Text('Superusuario'),
                             ),
                           ],
-                          onChanged: (valor) {
-                            if (valor != null) {
-                              setState(() {
-                                _rol = valor;
-                              });
-                            }
-                          },
+                          onChanged: _guardando
+                              ? null
+                              : (valor) {
+                                  if (valor != null) {
+                                    setState(() => _rol = valor);
+                                  }
+                                },
                         ),
                         const SizedBox(height: 14),
                         _campo(
@@ -490,10 +588,18 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                         if (!_esEdicion && _rol == 'operador') ...[
                           const SizedBox(height: 20),
                           const Text(
-                            'Fotografía de la licencia',
+                            'Documento de la licencia',
                             style: TextStyle(
                               color: AppTheme.primaryText,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Puedes seleccionar un archivo PDF, JPG o PNG.',
+                            style: TextStyle(
+                              color: AppTheme.secondaryText,
+                              fontSize: 13,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -505,24 +611,17 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                                 color: AppTheme.cfeGreen,
                               ),
                             ),
-                            onPressed: _seleccionarLicencia,
-                            icon: const Icon(Icons.photo_camera_outlined),
+                            onPressed: _guardando ? null : _seleccionarLicencia,
+                            icon: const Icon(Icons.file_upload_outlined),
                             label: Text(
-                              _fotoLicencia == null
-                                  ? 'Tomar fotografía'
-                                  : 'Cambiar fotografía',
+                              _archivoLicencia == null
+                                  ? 'Seleccionar documento'
+                                  : 'Cambiar documento',
                             ),
                           ),
-                          if (_fotoLicencia != null) ...[
-                            const SizedBox(height: 8),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                _fotoLicencia!,
-                                height: 160,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                          if (_archivoLicencia != null) ...[
+                            const SizedBox(height: 12),
+                            _vistaDocumentoSeleccionado(),
                           ],
                         ],
                         const SizedBox(height: 24),

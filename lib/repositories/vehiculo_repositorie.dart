@@ -8,7 +8,8 @@ class VehiculoRepositorie {
 
   final FirebaseFirestore _db;
 
-  CollectionReference<Map<String, dynamic>> get _vehiculos => _db.collection('vehiculo');
+  CollectionReference<Map<String, dynamic>> get _vehiculos =>
+      _db.collection('vehiculo');
 
   Stream<List<VehiculoModel>> obtenerVehiculos({
     String busqueda = '',
@@ -18,25 +19,33 @@ class VehiculoRepositorie {
       final texto = busqueda.trim().toLowerCase();
 
       final vehiculos = consulta.docs
-          .map((documento) =>
-              VehiculoModel.fromMap(documento.data(), documento.id))
+          .map(
+            (documento) => VehiculoModel.fromMap(
+              documento.data(),
+              documento.id,
+            ),
+          )
           .where((vehiculo) {
-            final estaDeBaja = vehiculo.estado.toLowerCase() == 'baja';
-            if (!incluirBaja && estaDeBaja) return false;
+        final estaDeBaja = vehiculo.estado.toLowerCase() == 'baja';
 
-            if (texto.isEmpty) return true;
+        if (!incluirBaja && estaDeBaja) {
+          return false;
+        }
 
-            final datos = [
-              vehiculo.placas,
-              vehiculo.numeroEconomico,
-              vehiculo.marca,
-              vehiculo.modelo,
-              vehiculo.anio.toString(),
-            ].join(' ').toLowerCase();
+        if (texto.isEmpty) {
+          return true;
+        }
 
-            return datos.contains(texto);
-          })
-          .toList();
+        final datos = [
+          vehiculo.placas,
+          vehiculo.numeroEconomico,
+          vehiculo.marca,
+          vehiculo.modelo,
+          vehiculo.anio.toString(),
+        ].join(' ').toLowerCase();
+
+        return datos.contains(texto);
+      }).toList();
 
       vehiculos.sort(
         (a, b) => a.placas.toLowerCase().compareTo(b.placas.toLowerCase()),
@@ -70,7 +79,7 @@ class VehiculoRepositorie {
     });
   }
 
-  // Actualiza los datos generales del vehículo.
+  // Actualiza los datos del vehículo sin modificar el operador asignado.
   Future<void> actualizarVehiculo(VehiculoModel vehiculo) async {
     if (vehiculo.uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -94,6 +103,8 @@ class VehiculoRepositorie {
       uidExcluir: vehiculo.uid,
     );
 
+    // Usa update para conservar campos que administra otro módulo,
+    // como operadorUidActual.
     await referencia.update({
       ...vehiculo.toMap(),
       'placasNormalizadas': placasNormalizadas,
@@ -102,7 +113,7 @@ class VehiculoRepositorie {
     });
   }
 
-  // Da de baja el vehículo sin borrar el documento ni su historial.
+  // Da de baja el vehículo sin borrar su documento ni su historial.
   Future<void> darDeBaja(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -121,7 +132,7 @@ class VehiculoRepositorie {
     });
   }
 
-  // Permite reactivar un vehículo que estaba dado de baja.
+  // Reactiva un vehículo dado de baja.
   Future<void> reactivarVehiculo(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -144,19 +155,29 @@ class VehiculoRepositorie {
     if (vehiculo.placas.trim().isEmpty) {
       throw ArgumentError('Escribe las placas del vehículo.');
     }
+
     if (vehiculo.numeroEconomico.trim().isEmpty) {
       throw ArgumentError('Escribe el número económico.');
     }
+
     if (vehiculo.marca.trim().isEmpty) {
       throw ArgumentError('Escribe la marca del vehículo.');
     }
+
     if (vehiculo.modelo.trim().isEmpty) {
       throw ArgumentError('Escribe el modelo del vehículo.');
     }
 
     final anioActual = DateTime.now().year;
+
     if (vehiculo.anio < 1950 || vehiculo.anio > anioActual + 1) {
       throw ArgumentError('Escribe un año válido.');
+    }
+
+    if (vehiculo.intervaloPreventivoKm <= 0) {
+      throw ArgumentError(
+        'El intervalo preventivo debe ser mayor que cero.',
+      );
     }
   }
 
@@ -165,16 +186,19 @@ class VehiculoRepositorie {
     required String numeroEconomico,
     String? uidExcluir,
   }) async {
-   
     final consulta = await _vehiculos.get();
 
     for (final documento in consulta.docs) {
-      if (documento.id == uidExcluir) continue;
+      if (documento.id == uidExcluir) {
+        continue;
+      }
 
       final datos = documento.data();
+
       final placasExistentes = _normalizar(
         (datos['placasNormalizadas'] ?? datos['placas'] ?? '').toString(),
       );
+
       final numeroExistente = _normalizar(
         (datos['numeroEconomicoNormalizado'] ??
                 datos['numeroEconomico'] ??
@@ -184,7 +208,9 @@ class VehiculoRepositorie {
       );
 
       if (placasExistentes == placas) {
-        throw ArgumentError('Ya existe un vehículo registrado con esas placas.');
+        throw ArgumentError(
+          'Ya existe un vehículo registrado con esas placas.',
+        );
       }
 
       if (numeroExistente == numeroEconomico) {

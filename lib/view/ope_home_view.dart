@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:p_vehicular/core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
+import '../models/vehiculos_model.dart';
 
 class OpeHomeView extends StatelessWidget {
   const OpeHomeView({super.key});
@@ -12,12 +13,26 @@ class OpeHomeView extends StatelessWidget {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
     if (usuarioActual == null) {
-      return const Stream.empty();
+      return const Stream<DocumentSnapshot<Map<String, dynamic>>>.empty();
     }
 
     return FirebaseFirestore.instance
         .collection('usuario')
         .doc(usuarioActual.uid)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _obtenerVehiculoAsignado() {
+    final usuarioActual = FirebaseAuth.instance.currentUser;
+
+    if (usuarioActual == null) {
+      return const Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
+    }
+
+    return FirebaseFirestore.instance
+        .collection('vehiculo')
+        .where('operadorUidActual', isEqualTo: usuarioActual.uid)
+        .limit(2)
         .snapshots();
   }
 
@@ -32,7 +47,7 @@ class OpeHomeView extends StatelessWidget {
         AppRoutes.login,
         (route) => false,
       );
-    } catch (e) {
+    } catch (_) {
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,9 +73,62 @@ class OpeHomeView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _tarjetaUnidadAsignada(),
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: _obtenerVehiculoAsignado(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return _tarjetaMensajeUnidad(
+                            'No se pudo consultar tu unidad. Intenta de nuevo.',
+                            icono: Icons.error_outline,
+                          );
+                        }
+
+                        if (snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !snapshot.hasData) {
+                          return _tarjetaCargandoUnidad();
+                        }
+
+                        final documentos = snapshot.data?.docs ?? [];
+
+                        if (documentos.isEmpty) {
+                          return _tarjetaMensajeUnidad(
+                            'Aún no tienes un vehículo asignado. '
+                            'Solicita al administrador que registre la asignación.',
+                            icono: Icons.local_shipping_outlined,
+                          );
+                        }
+
+                        if (documentos.length > 1) {
+                          return _tarjetaMensajeUnidad(
+                            'Hay más de un vehículo asignado a tu cuenta. '
+                            'Contacta al administrador para corregirlo.',
+                            icono: Icons.warning_amber_outlined,
+                          );
+                        }
+
+                        final documento = documentos.first;
+                        final vehiculo = VehiculoModel.fromMap(
+                          documento.data(),
+                          documento.id,
+                        );
+
+                        return _tarjetaUnidadAsignada(vehiculo);
+                      },
+                    ),
                     const SizedBox(height: 16),
-                    _accionesRapidas(context),
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: _obtenerVehiculoAsignado(),
+                      builder: (context, snapshot) {
+                        final tieneVehiculo =
+                            snapshot.hasData && snapshot.data!.docs.length == 1;
+
+                        return _accionesRapidas(
+                          context,
+                          habilitadas: tieneVehiculo,
+                        );
+                      },
+                    ),
                     const SizedBox(height: 24),
                     const Text(
                       'Módulos',
@@ -117,56 +185,31 @@ class OpeHomeView extends StatelessWidget {
                   ),
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    children: [
-                      IconButton(
-                        tooltip: 'Notificaciones',
-                        constraints: const BoxConstraints(
-                          minWidth: 48,
-                          minHeight: 48,
-                        ),
-                        icon: const Icon(
-                          Icons.notifications_none_outlined,
-                          color: AppTheme.pureWhite,
-                          size: 28,
-                        ),
-                        onPressed: () {},
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: CircleAvatar(
-                          radius: 8,
-                          backgroundColor: AppTheme.errorRed,
-                          child: const Text(
-                            '3',
-                            style: TextStyle(
-                              color: AppTheme.pureWhite,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    tooltip: 'Cerrar sesión',
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
-                    ),
-                    icon: const Icon(
-                      Icons.logout,
-                      color: AppTheme.pureWhite,
-                      size: 24,
-                    ),
-                    onPressed: () => _logout(context),
-                  ),
-                ],
+              IconButton(
+                tooltip: 'Notificaciones',
+                constraints: const BoxConstraints(
+                  minWidth: 48,
+                  minHeight: 48,
+                ),
+                icon: const Icon(
+                  Icons.notifications_none_outlined,
+                  color: AppTheme.pureWhite,
+                  size: 28,
+                ),
+                onPressed: () {},
+              ),
+              IconButton(
+                tooltip: 'Cerrar sesión',
+                constraints: const BoxConstraints(
+                  minWidth: 48,
+                  minHeight: 48,
+                ),
+                icon: const Icon(
+                  Icons.logout,
+                  color: AppTheme.pureWhite,
+                  size: 24,
+                ),
+                onPressed: () => _logout(context),
               ),
             ],
           ),
@@ -242,7 +285,10 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  Widget _tarjetaUnidadAsignada() {
+  Widget _tarjetaUnidadAsignada(VehiculoModel vehiculo) {
+    final descripcion =
+        '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
+
     return Card(
       color: AppTheme.pureWhite,
       elevation: 0,
@@ -280,22 +326,22 @@ class OpeHomeView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Ford Ranger 2020',
-                        style: TextStyle(
+                        descripcion.isEmpty ? 'Vehículo' : descripcion,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryText,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'MRL-517-B • CIV-02',
-                        style: TextStyle(
+                        '${vehiculo.placas} • ${vehiculo.numeroEconomico}',
+                        style: const TextStyle(
                           color: AppTheme.secondaryText,
                           fontSize: 14,
                         ),
@@ -307,72 +353,58 @@ class OpeHomeView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.warningSurface,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        color: AppTheme.warningText,
-                        size: 16,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Servicio próximo',
-                        style: TextStyle(
-                          color: AppTheme.warningText,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                const Icon(
+                  Icons.speed,
+                  color: AppTheme.secondaryText,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${vehiculo.kilometrajeActual} km',
+                  style: const TextStyle(
+                    color: AppTheme.primaryText,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        Icons.speed,
-                        color: AppTheme.secondaryText,
-                        size: 18,
-                      ),
-                      SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          '71,905 km',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppTheme.primaryText,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
+                const Spacer(),
+                Text(
+                  vehiculo.estadoOperativo,
+                  style: const TextStyle(
+                    color: AppTheme.secondaryText,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            const Divider(color: AppTheme.border, height: 1),
-            const SizedBox(height: 12),
-            const Text(
-              'Próximo servicio a los 72,500 km · faltan 595 km',
-              style: TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 13,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tarjetaMensajeUnidad(
+    String mensaje, {
+    required IconData icono,
+  }) {
+    return Card(
+      color: AppTheme.pureWhite,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Icon(icono, color: AppTheme.secondaryText, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                mensaje,
+                style: const TextStyle(color: AppTheme.secondaryText),
               ),
             ),
           ],
@@ -381,7 +413,27 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  Widget _accionesRapidas(BuildContext context) {
+  Widget _tarjetaCargandoUnidad() {
+    return Card(
+      color: AppTheme.pureWhite,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: CircularProgressIndicator(color: AppTheme.cfeGreen),
+        ),
+      ),
+    );
+  }
+
+  Widget _accionesRapidas(
+    BuildContext context, {
+    required bool habilitadas,
+  }) {
     return Row(
       children: [
         Expanded(
@@ -390,6 +442,7 @@ class OpeHomeView extends StatelessWidget {
             icono: Icons.local_gas_station,
             color: AppTheme.accentYellow,
             colorTexto: AppTheme.accentText,
+            habilitado: habilitadas,
             alTocar: () {
               Navigator.pushNamed(context, AppRoutes.combustible);
             },
@@ -402,8 +455,9 @@ class OpeHomeView extends StatelessWidget {
             icono: Icons.speed,
             color: AppTheme.cfeGreen,
             colorTexto: AppTheme.pureWhite,
+            habilitado: habilitadas,
             alTocar: () {
-              // Aquí se conectará la ruta del módulo de kilometraje.
+              Navigator.pushNamed(context, AppRoutes.kilometraje);
             },
           ),
         ),
@@ -416,13 +470,14 @@ class OpeHomeView extends StatelessWidget {
     required IconData icono,
     required Color color,
     required Color colorTexto,
+    required bool habilitado,
     required VoidCallback alTocar,
   }) {
     return Material(
-      color: color,
+      color: habilitado ? color : AppTheme.border,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: alTocar,
+        onTap: habilitado ? alTocar : null,
         borderRadius: BorderRadius.circular(14),
         child: SizedBox(
           height: 90,
@@ -431,13 +486,18 @@ class OpeHomeView extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icono, color: colorTexto, size: 28),
+                Icon(
+                  icono,
+                  color: habilitado ? colorTexto : AppTheme.secondaryText,
+                  size: 28,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   etiqueta,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: colorTexto,
+                    color:
+                        habilitado ? colorTexto : AppTheme.secondaryText,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -467,9 +527,7 @@ class OpeHomeView extends StatelessWidget {
         _tarjetaModulo(
           'Mantenimientos',
           Icons.build_circle_outlined,
-          () {
-            Navigator.pushNamed(context, AppRoutes.mantenimiento);
-          },
+          () => Navigator.pushNamed(context, AppRoutes.mantenimiento),
         ),
         _tarjetaModulo(
           'Inventario',

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -24,7 +24,6 @@ class UsuariosRepositorie {
   CollectionReference<Map<String, dynamic>> get _usuarios =>
       _db.collection('usuario');
 
-  // Devuelve los usuarios en tiempo real.
   Stream<List<UserModel>> obtenerUsuarios({
     String busqueda = '',
     String? rol,
@@ -34,11 +33,16 @@ class UsuariosRepositorie {
       final rolBuscado = rol?.trim().toLowerCase();
 
       return consulta.docs
-          .map((documento) =>
-              UserModel.fromMap(documento.data(), documento.id))
+          .map(
+            (documento) => UserModel.fromMap(
+              documento.data(),
+              documento.id,
+            ),
+          )
           .where((usuario) {
-        final coincideRol =
-            rolBuscado == null || rolBuscado.isEmpty || usuario.rol == rolBuscado;
+        final coincideRol = rolBuscado == null ||
+            rolBuscado.isEmpty ||
+            usuario.rol == rolBuscado;
 
         final datosBusqueda = [
           usuario.nombre,
@@ -63,7 +67,7 @@ class UsuariosRepositorie {
     });
   }
 
-  // Registra la cuenta en Authentication y el perfil en Firestore.
+  // Registra la cuenta, el perfil y, para operadores, su documento de licencia.
   Future<void> registrarUsuario({
     required String nombre,
     required String apellidoP,
@@ -73,7 +77,8 @@ class UsuariosRepositorie {
     required String rol,
     required String rpe,
     required String telefono,
-    File? fotoLicencia,
+    Uint8List? archivoLicencia,
+    String? nombreArchivoLicencia,
   }) async {
     final nombreLimpio = nombre.trim();
     final apellidoPLimpio = apellidoP.trim();
@@ -101,8 +106,11 @@ class UsuariosRepositorie {
       throw ArgumentError('Selecciona un rol válido.');
     }
 
-    if (rolLimpio == 'operador' && fotoLicencia == null) {
-      throw ArgumentError('La fotografía de licencia es obligatoria para operadores.');
+    if (rolLimpio == 'operador' &&
+        (archivoLicencia == null || archivoLicencia.isEmpty)) {
+      throw ArgumentError(
+        'Selecciona el documento de licencia del operador.',
+      );
     }
 
     FirebaseApp? appSecundaria;
@@ -123,17 +131,29 @@ class UsuariosRepositorie {
       );
 
       final nuevoUsuario = credencial.user;
+
       if (nuevoUsuario == null) {
         throw StateError('Firebase no devolvió la cuenta recién creada.');
       }
 
       var urlLicencia = '';
 
-      if (rolLimpio == 'operador' && fotoLicencia != null) {
-        referenciaLicencia =
-            _storage.ref().child('licencias/${nuevoUsuario.uid}.jpg');
+      if (rolLimpio == 'operador' && archivoLicencia != null) {
+        final extension = _obtenerExtension(nombreArchivoLicencia ?? '');
+        final tipoContenido = _obtenerTipoContenido(extension);
 
-        await referenciaLicencia.putFile(fotoLicencia);
+        referenciaLicencia = _storage
+            .ref()
+            .child('licencias/${nuevoUsuario.uid}.$extension');
+
+        final metadata = SettableMetadata(
+          contentType: tipoContenido,
+        );
+
+        await referenciaLicencia
+            .putData(archivoLicencia, metadata)
+            .timeout(const Duration(seconds: 45));
+
         urlLicencia = await referenciaLicencia.getDownloadURL();
       }
 
@@ -154,21 +174,25 @@ class UsuariosRepositorie {
         'creadoEn': FieldValue.serverTimestamp(),
         'actualizadoEn': FieldValue.serverTimestamp(),
       });
+    } on FirebaseException{
+      // Permite que el ViewModel muestre el código real del error de Storage.
+      rethrow;
     } catch (_) {
       if (referenciaLicencia != null) {
         try {
           await referenciaLicencia.delete();
         } catch (_) {
-          // Se conserva el error original del registro.
+          // Conserva el error original del registro.
         }
       }
 
       final usuarioCreado = credencial?.user;
+
       if (usuarioCreado != null) {
         try {
           await usuarioCreado.delete();
         } catch (_) {
-          // Se conserva el error original del registro.
+          // Conserva el error original del registro.
         }
       }
 
@@ -178,12 +202,39 @@ class UsuariosRepositorie {
         try {
           await appSecundaria.delete();
         } catch (_) {
+          // No cambia el resultado del registro.
         }
       }
     }
   }
 
-  // Actualiza los datos del perfil en Firestore.
+  String _obtenerExtension(String nombreArchivo) {
+    final partes = nombreArchivo.toLowerCase().split('.');
+
+    if (partes.length < 2) {
+      throw ArgumentError('El archivo no tiene una extensión válida.');
+    }
+
+    final extension = partes.last;
+
+    if (!['pdf', 'jpg', 'jpeg', 'png'].contains(extension)) {
+      throw ArgumentError('Selecciona un archivo PDF, JPG o PNG.');
+    }
+
+    return extension == 'jpeg' ? 'jpg' : extension;
+  }
+
+  String _obtenerTipoContenido(String extension) {
+    switch (extension) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'png':
+        return 'image/png';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
   Future<void> actualizarUsuario(UserModel usuario) async {
     final datos = usuario.toMap()
       ..['actualizadoEn'] = FieldValue.serverTimestamp();
@@ -191,7 +242,6 @@ class UsuariosRepositorie {
     await _usuarios.doc(usuario.uid).update(datos);
   }
 
-  // Un metod de Cloud Function llamada actualizarUsuario
   Future<void> actualizarUsuarioCompleto({
     required UserModel usuario,
     String? nuevaContrasena,
@@ -207,7 +257,6 @@ class UsuariosRepositorie {
     });
   }
 
-  // Elimina el perfil y la cuenta Auth mediante una función de servidor.
   Future<void> eliminarUsuario(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del usuario.');

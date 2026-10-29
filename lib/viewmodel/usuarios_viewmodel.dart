@@ -1,9 +1,8 @@
-import 'dart:io';
-
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../models/user_model.dart';
 import '../repositories/usuario_repositorie.dart';
 
@@ -41,7 +40,8 @@ class UsuariosViewModel extends ChangeNotifier {
     required String rol,
     required String rpe,
     required String telefono,
-    File? fotoLicencia,
+    Uint8List? archivoLicencia,
+    String? nombreArchivoLicencia,
   }) async {
     if (_cargando) return false;
 
@@ -57,7 +57,8 @@ class UsuariosViewModel extends ChangeNotifier {
         rol: rol,
         rpe: rpe,
         telefono: telefono,
-        fotoLicencia: fotoLicencia,
+        archivoLicencia: archivoLicencia,
+        nombreArchivoLicencia: nombreArchivoLicencia,
       );
 
       _mensajeExito = 'El usuario se registró correctamente.';
@@ -68,8 +69,20 @@ class UsuariosViewModel extends ChangeNotifier {
     } on FirebaseFunctionsException catch (error) {
       _mensajeError = _mensajeErrorFunctions(error);
       return false;
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Error de Firebase al subir la licencia: '
+        '${error.code} - ${error.message}',
+      );
+      _mensajeError = _mensajeErrorStorage(error.code);
+      return false;
     } on ArgumentError catch (error) {
-      _mensajeError = error.message?.toString() ?? 'Revisa los datos ingresados.';
+      _mensajeError =
+          error.message?.toString() ?? 'Revisa los datos ingresados.';
+      return false;
+    } on TimeoutException {
+      _mensajeError =
+          'La carga del documento tardó demasiado. Revisa tu conexión e inténtalo otra vez.';
       return false;
     } catch (error) {
       debugPrint('Error al registrar usuario: $error');
@@ -110,6 +123,7 @@ class UsuariosViewModel extends ChangeNotifier {
     String? nuevaContrasena,
   }) async {
     if (_cargando) return false;
+
     _iniciarOperacion();
 
     try {
@@ -143,13 +157,12 @@ class UsuariosViewModel extends ChangeNotifier {
       _mensajeExito = 'El usuario se eliminó correctamente.';
       return true;
     } on FirebaseFunctionsException catch (error) {
-      debugPrint('Error de Cloud Function al eliminar usuario: ${error.code}');
+      debugPrint('Error al eliminar usuario: ${error.code}');
       _mensajeError = _mensajeErrorFunctions(error);
       return false;
     } catch (error) {
       debugPrint('Error al eliminar usuario: $error');
-      _mensajeError =
-          'No se pudo eliminar el usuario. Inténtalo de nuevo.';
+      _mensajeError = 'No se pudo eliminar el usuario. Inténtalo de nuevo.';
       return false;
     } finally {
       _finalizarOperacion();
@@ -187,14 +200,34 @@ class UsuariosViewModel extends ChangeNotifier {
     }
   }
 
+  String _mensajeErrorStorage(String code) {
+    switch (code) {
+      case 'unauthorized':
+      case 'storage/unauthorized':
+        return 'Firebase Storage rechazó el archivo. Revisa las reglas de acceso.';
+      case 'canceled':
+      case 'storage/canceled':
+        return 'La carga del documento fue cancelada.';
+      case 'retry-limit-exceeded':
+      case 'storage/retry-limit-exceeded':
+        return 'Se agotó el tiempo para subir el documento. Revisa tu conexión.';
+      case 'object-not-found':
+      case 'storage/object-not-found':
+        return 'No se encontró el archivo en Firebase Storage.';
+      default:
+        return 'No se pudo subir el documento a Firebase Storage ($code).';
+    }
+  }
+
   String _mensajeErrorFunctions(FirebaseFunctionsException error) {
     switch (error.code) {
       case 'unauthenticated':
         return 'Tu sesión terminó. Inicia sesión nuevamente.';
       case 'not-found':
-        return 'No se encontró al usuario que intentas eliminar.';
+        return 'No se encontró al usuario que intentas modificar.';
       case 'failed-precondition':
-        return error.message ?? 'No se puede completar esta operación todavía.';
+        return error.message ??
+            'No se puede completar esta operación todavía.';
       case 'unavailable':
         return 'El servicio no está disponible. Inténtalo más tarde.';
       default:

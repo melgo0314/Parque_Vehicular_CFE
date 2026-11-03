@@ -1,13 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
 
+// Pantalla principal del administrador.
 class AdminHomeView extends StatelessWidget {
+  // Crea la pantalla principal del administrador.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de AdminHomeView.
   const AdminHomeView({super.key});
 
+  // Obtiene en tiempo real el documento del usuario autenticado.
+  // Entrada: ninguna; utiliza el usuario actual de Firebase Authentication.
+  // Salida: un flujo con el documento del usuario, o un flujo vacío si no hay sesión.
   Stream<DocumentSnapshot<Map<String, dynamic>>> _obtenerUsuario() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -21,6 +27,9 @@ class AdminHomeView extends StatelessWidget {
         .snapshots();
   }
 
+  // Cierra la sesión y redirige a la pantalla de inicio de sesión.
+  // Entrada: context de la pantalla actual.
+  // Salida: ninguna; navega al inicio de sesión o muestra un mensaje si falla.
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -44,6 +53,9 @@ class AdminHomeView extends StatelessWidget {
     }
   }
 
+  // Construye la pantalla principal con el resumen y las tarjetas de módulos.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla principal.
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -152,7 +164,12 @@ class AdminHomeView extends StatelessWidget {
                               context,
                               Icons.layers_outlined,
                               'Inventario',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.inventario,
+                                );
+                              },
                             ),
                             _tarjetaModulo(
                               context,
@@ -186,6 +203,9 @@ class AdminHomeView extends StatelessWidget {
     );
   }
 
+  // Construye el encabezado con el nombre del administrador y acciones.
+  // Entrada: context de la pantalla actual.
+  // Salida: un widget con el encabezado y los controles de la pantalla.
   Widget _encabezado(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -294,8 +314,6 @@ class AdminHomeView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Ancho limitado para que el botón no reciba infinito.
                   const SizedBox(
                     width: 136,
                     child: _RolAdministrador(),
@@ -309,6 +327,9 @@ class AdminHomeView extends StatelessWidget {
     );
   }
 
+  // Construye la tarjeta que resume el estado del parque vehicular.
+  // Entrada: context de la pantalla actual.
+  // Salida: una tarjeta con indicadores de próximos, vencidos y vehículos en taller.
   Widget _tarjetaEstadoParque(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -362,6 +383,9 @@ class AdminHomeView extends StatelessWidget {
     );
   }
 
+  // Construye un indicador con valor, etiqueta y color.
+  // Entradas: context, valor a mostrar, etiqueta descriptiva y color del valor.
+  // Salida: un widget con el valor y su etiqueta.
   Widget _indicadorEstado(
     BuildContext context,
     String valor,
@@ -390,6 +414,9 @@ class AdminHomeView extends StatelessWidget {
     );
   }
 
+  // Construye una tarjeta interactiva para abrir un módulo.
+  // Entradas: context, icono, etiqueta y alTocar, acción que se ejecuta al pulsar.
+  // Salida: una tarjeta que muestra el módulo y ejecuta su acción al tocarla.
   Widget _tarjetaModulo(
     BuildContext context,
     IconData icono,
@@ -422,9 +449,9 @@ class AdminHomeView extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.primaryText,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color: AppTheme.primaryText,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -435,9 +462,16 @@ class AdminHomeView extends StatelessWidget {
   }
 }
 
+// Muestra la etiqueta del rol de administrador.
 class _RolAdministrador extends StatelessWidget {
+  // Crea la etiqueta del rol de administrador.
+  // Entrada: ninguna.
+  // Salida: una instancia de _RolAdministrador.
   const _RolAdministrador();
 
+  // Construye el botón desactivado que identifica el rol.
+  // Entrada: context de la pantalla actual.
+  // Salida: un botón con el icono y el texto del rol.
   @override
   Widget build(BuildContext context) {
     return FilledButton.tonal(

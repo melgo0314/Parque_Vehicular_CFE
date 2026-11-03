@@ -1,16 +1,37 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CombustibleModel {
+  // Identificador único del documento de la carga.
   final String uid;
+
+  // Identificador del vehículo que recibió la carga.
   final String vehiculoUid;
+
+  // RPE del usuario que registró la carga.
   final String rpeUsuario;
+
+  // Fecha y hora en que se realizó la carga.
   final DateTime fechaCarga;
+
+  // Cantidad de combustible cargada, expresada en litros.
   final double litros;
+
+  // Tipo de combustible utilizado.
   final String tipoCombustible;
+
+  // Kilometraje del vehículo al momento de la carga.
   final int kilometraje;
+
+  // Importe pagado por la carga.
   final double importe;
+
+  // Observaciones adicionales de la carga.
   final String observaciones;
 
+  // Crea un modelo con los datos de una carga de combustible.
+  // Entradas: identificadores, fecha, litros, tipo, kilometraje e importe;
+  // observaciones es opcional y por defecto es una cadena vacía.
+  // Salida: una instancia inmutable de CombustibleModel.
   const CombustibleModel({
     required this.uid,
     required this.vehiculoUid,
@@ -23,6 +44,9 @@ class CombustibleModel {
     this.observaciones = '',
   });
 
+  // Crea un modelo a partir de los datos de un documento de Firestore.
+  // Entradas: map con los campos del documento y documentId con su identificador.
+  // Salida: una instancia de CombustibleModel con los valores convertidos.
   factory CombustibleModel.fromMap(
     Map<String, dynamic> map,
     String documentId,
@@ -40,6 +64,9 @@ class CombustibleModel {
     );
   }
 
+  // Convierte el modelo en un mapa compatible con Firestore.
+  // Entrada: ninguna; utiliza los valores de esta instancia.
+  // Salida: mapa con los campos de la carga y la fecha como Timestamp.
   Map<String, dynamic> toMap() {
     return {
       'vehiculoUid': vehiculoUid,
@@ -53,6 +80,9 @@ class CombustibleModel {
     };
   }
 
+  // Crea una copia del modelo y reemplaza solo los valores proporcionados.
+  // Entradas: campos opcionales que se desean modificar.
+  // Salida: una nueva instancia de CombustibleModel con los cambios aplicados.
   CombustibleModel copyWith({
     String? vehiculoUid,
     String? rpeUsuario,
@@ -76,20 +106,32 @@ class CombustibleModel {
     );
   }
 
+  // Convierte un valor dinámico en texto sin espacios al inicio o al final.
+  // Entrada: valor recibido desde el mapa de Firestore.
+  // Salida: texto limpio o una cadena vacía si el valor es nulo.
   static String _texto(dynamic valor) {
     return valor?.toString().trim() ?? '';
   }
 
+  // Convierte un valor dinámico en número decimal.
+  // Entrada: valor numérico o texto que represente un decimal.
+  // Salida: valor convertido a double; devuelve 0 si no se puede convertir.
   static double _decimal(dynamic valor) {
     if (valor is num) return valor.toDouble();
     return double.tryParse(valor?.toString() ?? '') ?? 0;
   }
 
+  // Convierte un valor dinámico en número entero.
+  // Entrada: valor numérico o texto que represente un entero.
+  // Salida: valor convertido a int; devuelve 0 si no se puede convertir.
   static int _entero(dynamic valor) {
     if (valor is num) return valor.toInt();
     return int.tryParse(valor?.toString() ?? '') ?? 0;
   }
 
+  // Convierte un valor admitido en una fecha.
+  // Entrada: valor Timestamp, DateTime o texto con formato de fecha válido.
+  // Salida: fecha convertida; usa la fecha y hora actuales si falla la conversión.
   static DateTime _fecha(dynamic valor) {
     if (valor is Timestamp) return valor.toDate();
     if (valor is DateTime) return valor;

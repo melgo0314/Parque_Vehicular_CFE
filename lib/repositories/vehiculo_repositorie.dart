@@ -1,16 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/vehiculos_model.dart';
 
+// Se comunica con Firebase para administrar vehículos.
 class VehiculoRepositorie {
+  // Crea el repositorio con Firestore o con la instancia predeterminada.
+  // Entrada: firestore opcional para proporcionar una conexión personalizada.
+  // Salida: una instancia de VehiculoRepositorie configurada.
   VehiculoRepositorie({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
+  // Conexión a Cloud Firestore.
   final FirebaseFirestore _db;
 
+  // Referencia a la colección de vehículos.
   CollectionReference<Map<String, dynamic>> get _vehiculos =>
       _db.collection('vehiculo');
 
+  // Obtiene vehículos en tiempo real y filtra por texto y estado de baja.
+  // Entradas: busqueda opcional e incluirBaja para incluir vehículos dados de baja.
+  // Salida: un flujo con la lista de vehículos ordenada por placas.
   Stream<List<VehiculoModel>> obtenerVehiculos({
     String busqueda = '',
     bool incluirBaja = false,
@@ -55,7 +63,10 @@ class VehiculoRepositorie {
     });
   }
 
-  // Registra un vehículo con estado activo.
+  // Valida y registra un vehículo con estado activo.
+  // Entrada: vehiculo con los datos que se guardarán.
+  // Salida: un Future que termina cuando Firestore confirma el registro.
+  // Lanza ArgumentError si los datos no son válidos o no son únicos.
   Future<void> registrarVehiculo(VehiculoModel vehiculo) async {
     _validarDatos(vehiculo);
 
@@ -79,7 +90,10 @@ class VehiculoRepositorie {
     });
   }
 
-  // Actualiza los datos del vehículo sin modificar el operador asignado.
+  // Actualiza los datos del vehículo y conserva los campos de otros módulos.
+  // Entrada: vehiculo con identificador y datos actualizados.
+  // Salida: un Future que termina cuando Firestore confirma la actualización.
+  // Lanza errores si falta el identificador, el vehículo o hay datos duplicados.
   Future<void> actualizarVehiculo(VehiculoModel vehiculo) async {
     if (vehiculo.uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -103,7 +117,7 @@ class VehiculoRepositorie {
       uidExcluir: vehiculo.uid,
     );
 
-    // Usa update para conservar campos que administra otro módulo,
+    // Usa update para conservar campos administrados por otros módulos,
     // como operadorUidActual.
     await referencia.update({
       ...vehiculo.toMap(),
@@ -113,7 +127,10 @@ class VehiculoRepositorie {
     });
   }
 
-  // Da de baja el vehículo sin borrar su documento ni su historial.
+  // Da de baja un vehículo sin eliminar su documento ni su historial.
+  // Entrada: uid, identificador del vehículo que se dará de baja.
+  // Salida: un Future que termina cuando Firestore confirma el cambio.
+  // Lanza errores si el identificador está vacío o el vehículo no existe.
   Future<void> darDeBaja(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -132,7 +149,10 @@ class VehiculoRepositorie {
     });
   }
 
-  // Reactiva un vehículo dado de baja.
+  // Reactiva un vehículo que se encontraba dado de baja.
+  // Entrada: uid, identificador del vehículo que se reactivará.
+  // Salida: un Future que termina cuando Firestore confirma el cambio.
+  // Lanza errores si el identificador está vacío o el vehículo no existe.
   Future<void> reactivarVehiculo(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('No se recibió el identificador del vehículo.');
@@ -151,6 +171,9 @@ class VehiculoRepositorie {
     });
   }
 
+  // Valida los campos obligatorios y el año e intervalo preventivo del vehículo.
+  // Entrada: vehiculo cuyos datos se revisarán.
+  // Salida: ninguna si los datos son válidos; lanza ArgumentError si no lo son.
   void _validarDatos(VehiculoModel vehiculo) {
     if (vehiculo.placas.trim().isEmpty) {
       throw ArgumentError('Escribe las placas del vehículo.');
@@ -181,6 +204,11 @@ class VehiculoRepositorie {
     }
   }
 
+  // Comprueba que las placas y el número económico no estén registrados.
+  // Entradas: placas y numeroEconomico normalizados; uidExcluir opcional para
+  // omitir el vehículo que se está actualizando.
+  // Salida: un Future que termina si ambos valores son únicos; lanza
+  // ArgumentError cuando encuentra un duplicado.
   Future<void> _validarUnicidad({
     required String placas,
     required String numeroEconomico,
@@ -221,6 +249,9 @@ class VehiculoRepositorie {
     }
   }
 
+  // Normaliza un texto para comparar placas o números económicos.
+  // Entrada: valor original que se desea normalizar.
+  // Salida: texto en mayúsculas, sin espacios al inicio, al final o intermedios.
   String _normalizar(String valor) {
     return valor.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
   }

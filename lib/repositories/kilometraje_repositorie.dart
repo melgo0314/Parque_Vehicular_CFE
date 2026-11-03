@@ -1,13 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../models/kilometraje_model.dart';
 
+// Se comunica con Firebase para administrar registros de kilometraje.
 class KilometrajeRepositorie {
+  // Conexión a Cloud Firestore.
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // Servicio de Firebase Authentication.
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Registra el recorrido y actualiza el kilometraje actual del vehículo.
+  // Registra un recorrido y actualiza el kilometraje actual del vehículo.
+  // Entrada: registro con el vehículo, fecha y lecturas inicial y final.
+  // Salida: un Future que termina cuando Firestore confirma los cambios.
+  // Lanza errores si no hay sesión, faltan datos o el kilometraje no es válido.
   Future<void> registrarKilometraje(KilometrajeModel registro) async {
     final usuarioActual = _auth.currentUser;
 
@@ -78,7 +84,9 @@ class KilometrajeRepositorie {
     await lote.commit();
   }
 
-  // Obtiene todos los registros o filtra los de un vehículo.
+  // Obtiene todos los registros o filtra los de un vehículo específico.
+  // Entrada: vehiculoUid opcional para limitar la consulta a un vehículo.
+  // Salida: un flujo de registros ordenado desde la fecha más reciente.
   Stream<List<KilometrajeModel>> obtenerRegistros({
     String? vehiculoUid,
   }) {
@@ -104,7 +112,10 @@ class KilometrajeRepositorie {
     });
   }
 
-  // Actualiza un registro y vuelve a calcular el kilometraje del vehículo.
+  // Actualiza un registro y recalcula el kilometraje actual de su vehículo.
+  // Entrada: registro con el identificador y los datos actualizados.
+  // Salida: un Future que termina cuando se guardan el registro y el kilometraje.
+  // Lanza ArgumentError si falta el identificador, el vehículo o los datos válidos.
   Future<void> actualizarKilometraje(KilometrajeModel registro) async {
     if (registro.uid.trim().isEmpty) {
       throw ArgumentError('El registro no tiene un identificador válido.');
@@ -128,7 +139,9 @@ class KilometrajeRepositorie {
     await _actualizarKilometrajeDelVehiculo(registro.vehiculoUid);
   }
 
-  // Elimina un registro y recalcula el kilometraje actual del vehículo.
+  // Elimina un registro y recalcula el kilometraje del vehículo relacionado.
+  // Entrada: uid, identificador del registro que se eliminará.
+  // Salida: un Future que termina cuando se completa la eliminación y el recálculo.
   Future<void> eliminarKilometraje(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('El registro no tiene un identificador válido.');
@@ -151,7 +164,9 @@ class KilometrajeRepositorie {
     }
   }
 
-  // Toma la lectura del registro más reciente y la guarda en Vehiculo.
+  // Busca la lectura más reciente y la guarda en el documento del vehículo.
+  // Entrada: vehiculoUid, identificador del vehículo que se actualizará.
+  // Salida: un Future que termina cuando Firestore guarda el kilometraje calculado.
   Future<void> _actualizarKilometrajeDelVehiculo(String vehiculoUid) async {
     final consulta = await _db
         .collection('kilometraje')
@@ -176,6 +191,9 @@ class KilometrajeRepositorie {
     });
   }
 
+  // Convierte un valor dinámico en número decimal.
+  // Entrada: valor numérico o texto que represente un número.
+  // Salida: número convertido; devuelve 0 si el valor no se puede convertir.
   double _convertirNumero(dynamic valor) {
     if (valor is num) return valor.toDouble();
     return double.tryParse(valor?.toString() ?? '') ?? 0;

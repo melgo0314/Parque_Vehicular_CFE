@@ -1,1013 +1,770 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
+import 'package:p_vehicular/models/detalle_refaccion_model.dart';
 import '../core/theme/app_theme.dart';
 import '../models/mantenimiento_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/mantenimiento_viewmodel.dart';
 
+// Formulario para registrar o editar un mantenimiento.
 class FormMantenimientoView extends StatefulWidget {
-  final String? vehiculoUidInicial;
-  final String? moduloInicial;
+  // Vehículo al que pertenece el mantenimiento.
+  final VehiculoModel vehiculo;
+
+  // Mantenimiento que se editará; es null cuando se crea uno nuevo.
   final MantenimientoModel? mantenimiento;
 
+  // Crea el formulario para el vehículo indicado.
+  // Entradas: key opcional, vehiculo requerido y mantenimiento opcional.
+  // Salida: una instancia de FormMantenimientoView.
   const FormMantenimientoView({
     super.key,
-    this.vehiculoUidInicial,
-    this.moduloInicial,
+    required this.vehiculo,
     this.mantenimiento,
   });
 
+  // Crea el estado asociado al formulario.
+  // Entrada: ninguna.
+  // Salida: el estado que administra los campos y operaciones.
   @override
   State<FormMantenimientoView> createState() =>
       _FormMantenimientoViewState();
 }
 
+// Estado y comportamiento del formulario de mantenimiento.
 class _FormMantenimientoViewState extends State<FormMantenimientoView> {
+  // Llave global para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
+
+  // ViewModel que registra y actualiza mantenimientos.
   final _viewModel = MantenimientoViewModel();
 
+  // Controlador para la descripción del trabajo realizado.
   final _trabajoController = TextEditingController();
-  final _piezaController = TextEditingController();
-  final _cantidadPiezaController = TextEditingController(text: '1');
-  final _costoController = TextEditingController();
-  final _proveedorController = TextEditingController();
-  final _observacionesController = TextEditingController();
-  final _kilometrajeController = TextEditingController();
+
+  // Controlador para el kilometraje programado.
   final _kilometrajeProgramadoController = TextEditingController();
+
+  // Controlador para el kilometraje realizado.
+  final _kilometrajeRealizadoController = TextEditingController();
+
+  // Controlador para el horómetro.
   final _horometroController = TextEditingController();
-  final _vidaUtilLlantaController = TextEditingController();
-  final _desgasteLlantaController = TextEditingController();
-  final _categoriaPempController = TextEditingController();
 
-  late final Stream<List<VehiculoModel>> _vehiculosStream;
+  // Controlador para el costo del servicio.
+  final _costoController = TextEditingController();
 
-  final List<String> _piezas = [];
+  // Controlador para el proveedor o responsable.
+  final _proveedorController = TextEditingController();
 
-  String? _vehiculoUid;
-  String _modulo = 'mecanico';
+  // Controlador para las observaciones.
+  final _observacionesController = TextEditingController();
+
+  // Controlador para la vida útil de las llantas.
+  final _vidaUtilLlantasController = TextEditingController();
+
+  // Controlador para el nivel de desgaste de las llantas.
+  final _desgasteLlantasController = TextEditingController();
+
+  // Controlador para la categoría de la prueba PEMP.
+  final _categoriaPruebaController = TextEditingController();
+
+  // Controladores para los nombres de las refacciones.
+  final List<TextEditingController> _nombreRefaccionControllers = [];
+
+  // Controladores para las cantidades de las refacciones.
+  final List<TextEditingController> _cantidadRefaccionControllers = [];
+
+  // Tipo de mantenimiento seleccionado.
   String _tipoMantenimiento = 'preventivo';
 
-  DateTime _fechaRealizado = DateTime.now();
+  // Módulo de mantenimiento seleccionado.
+  String _modulo = 'mecanico';
+
+  // Fecha programada para el mantenimiento, si existe.
   DateTime? _fechaProgramada;
-  DateTime? _fechaCaducidadLlanta;
 
+  // Fecha en que se realizó el mantenimiento.
+  DateTime _fechaRealizado = DateTime.now();
+
+  // Fecha de caducidad de las llantas, si se registra.
+  DateTime? _fechaCaducidadLlantas;
+
+  // Fecha de la prueba PEMP, si corresponde.
+  DateTime? _fechaPrueba;
+
+  // Indica si se capturarán datos de control de llantas.
   bool _controlLlantas = false;
-  bool _guardando = false;
-  bool _intentoGuardar = false;
 
-  bool get _esEdicion => widget.mantenimiento != null;
-  bool get _esPemp => _modulo == 'laboratorio_pemp';
-  bool get _esPreventivo => _tipoMantenimiento == 'preventivo';
+  // Indica si el módulo seleccionado es el laboratorio PEMP.
+  bool get _esLaboratorio => _modulo == 'laboratorio_pemp';
 
-  bool get _debeCapturarKilometraje {
-    return _modulo == 'mecanico' ||
-        (_modulo == 'hidraulico' && _esPreventivo);
-  }
-
+  // Carga los datos del mantenimiento existente en los campos.
+  // Entrada: ninguna; consulta el mantenimiento recibido por el widget.
+  // Salida: ninguna; prepara los campos y la lista de refacciones.
   @override
   void initState() {
     super.initState();
 
-    _vehiculosStream = _viewModel.obtenerVehiculos();
-
     final mantenimiento = widget.mantenimiento;
 
     if (mantenimiento != null) {
-      _vehiculoUid = mantenimiento.vehiculoUid;
-      _modulo = mantenimiento.modulo;
       _tipoMantenimiento = mantenimiento.tipoMantenimiento;
-
-      _fechaRealizado = mantenimiento.fechaRealizado;
+      _modulo = mantenimiento.modulo;
       _fechaProgramada = mantenimiento.fechaProgramada;
-      _fechaCaducidadLlanta = mantenimiento.fechaCaducidadLlanta;
+      _fechaRealizado = mantenimiento.fechaRealizado;
+      _fechaCaducidadLlantas = mantenimiento.fechaCaducidadLlantas;
+      _fechaPrueba = mantenimiento.fechaPrueba;
 
+      _kilometrajeProgramadoController.text =
+          mantenimiento.kilometrajeProgramado?.toString() ?? '';
+      _kilometrajeRealizadoController.text =
+          mantenimiento.kilometrajeRealizado?.toString() ?? '';
+      _horometroController.text =
+          mantenimiento.horometro?.toString() ?? '';
       _trabajoController.text = mantenimiento.trabajoRealizado;
-      _costoController.text = mantenimiento.costo.toStringAsFixed(2);
+      _costoController.text = mantenimiento.costo.toString();
       _proveedorController.text = mantenimiento.proveedor;
       _observacionesController.text = mantenimiento.observaciones;
-      _categoriaPempController.text = mantenimiento.categoriaPemp;
+      _vidaUtilLlantasController.text =
+          mantenimiento.vidaUtilLlantas?.toString() ?? '';
+      _desgasteLlantasController.text =
+          mantenimiento.nivelDesgasteLlantas?.toString() ?? '';
+      _categoriaPruebaController.text = mantenimiento.categoriaPrueba;
 
-      if (mantenimiento.kilometraje != null) {
-        _kilometrajeController.text =
-            mantenimiento.kilometraje.toString();
+      _controlLlantas = mantenimiento.fechaCaducidadLlantas != null ||
+          mantenimiento.vidaUtilLlantas != null ||
+          mantenimiento.nivelDesgasteLlantas != null;
+
+      for (final refaccion in mantenimiento.detalleRefacciones) {
+        _agregarRefaccion(
+          nombre: refaccion.nombre,
+          cantidad: refaccion.cantidad.toString(),
+        );
       }
-
-      if (mantenimiento.kilometrajeProgramado != null) {
-        _kilometrajeProgramadoController.text =
-            mantenimiento.kilometrajeProgramado.toString();
-      }
-
-      if (mantenimiento.horometroHoras != null) {
-        _horometroController.text =
-            mantenimiento.horometroHoras.toString();
-      }
-
-      if (mantenimiento.vidaUtilLlantaKm != null) {
-        _vidaUtilLlantaController.text =
-            mantenimiento.vidaUtilLlantaKm.toString();
-      }
-
-      if (mantenimiento.desgasteLlantaPorcentaje != null) {
-        _desgasteLlantaController.text =
-            mantenimiento.desgasteLlantaPorcentaje.toString();
-      }
-
-      if (mantenimiento.piezasUtilizadas.trim().isNotEmpty) {
-        _piezas.add(mantenimiento.piezasUtilizadas);
-      }
-
-      _controlLlantas = mantenimiento.fechaCaducidadLlanta != null ||
-          mantenimiento.vidaUtilLlantaKm != null ||
-          mantenimiento.desgasteLlantaPorcentaje != null;
     } else {
-      _vehiculoUid = widget.vehiculoUidInicial;
-
-      final moduloInicial = widget.moduloInicial;
-      if (moduloInicial != null && moduloInicial.isNotEmpty) {
-        _modulo = moduloInicial;
-      }
-
-      if (_modulo == 'laboratorio_pemp') {
-        _tipoMantenimiento = 'prueba';
-      }
+      _costoController.text = '0';
     }
   }
 
+  // Libera los controladores y el ViewModel al cerrar el formulario.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _trabajoController.dispose();
-    _piezaController.dispose();
-    _cantidadPiezaController.dispose();
+    _kilometrajeProgramadoController.dispose();
+    _kilometrajeRealizadoController.dispose();
+    _horometroController.dispose();
     _costoController.dispose();
     _proveedorController.dispose();
     _observacionesController.dispose();
-    _kilometrajeController.dispose();
-    _kilometrajeProgramadoController.dispose();
-    _horometroController.dispose();
-    _vidaUtilLlantaController.dispose();
-    _desgasteLlantaController.dispose();
-    _categoriaPempController.dispose();
+    _vidaUtilLlantasController.dispose();
+    _desgasteLlantasController.dispose();
+    _categoriaPruebaController.dispose();
+
+    for (final controller in _nombreRefaccionControllers) {
+      controller.dispose();
+    }
+
+    for (final controller in _cantidadRefaccionControllers) {
+      controller.dispose();
+    }
+
     _viewModel.dispose();
     super.dispose();
   }
 
-  String? _validarObligatorio(String? valor, String campo) {
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa $campo.';
-    }
-    return null;
-  }
-
-  double? _leerDecimal(String valor) {
-    return double.tryParse(valor.trim().replaceAll(',', '.'));
-  }
-
-  String? _validarCosto(String? valor) {
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa el costo.';
-    }
-
-    final costo = _leerDecimal(valor);
-    if (costo == null || costo < 0) {
-      return 'Ingresa un costo válido.';
-    }
-
-    return null;
-  }
-
-  String? _validarKilometraje(String? valor) {
-    if (!_debeCapturarKilometraje) return null;
-
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa el kilometraje.';
-    }
-
-    final kilometraje = int.tryParse(valor.trim());
-
-    if (kilometraje == null || kilometraje < 0) {
-      return 'Ingresa un kilometraje válido.';
-    }
-
-    return null;
-  }
-
-  String? _validarKilometrajeProgramado(String? valor) {
-    if (_modulo != 'mecanico' || !_esPreventivo) return null;
-
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa el kilometraje del próximo servicio.';
-    }
-
-    final programado = int.tryParse(valor.trim());
-    final realizado = int.tryParse(_kilometrajeController.text.trim());
-
-    if (programado == null || programado <= 0) {
-      return 'Ingresa un kilometraje programado válido.';
-    }
-
-    if (realizado != null && programado <= realizado) {
-      return 'Debe ser mayor que el kilometraje realizado.';
-    }
-
-    return null;
-  }
-
-  String? _validarHorometro(String? valor) {
-    if (_modulo != 'hidraulico' || !_esPreventivo) return null;
-
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa las horas del horómetro.';
-    }
-
-    final horas = _leerDecimal(valor);
-
-    if (horas == null || horas < 0) {
-      return 'Ingresa un valor válido para el horómetro.';
-    }
-
-    return null;
-  }
-
-  String? _validarCategoria(String? valor) {
-    if (!_esPemp) return null;
-
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa la categoría asignada en la prueba.';
-    }
-
-    return null;
-  }
-
-  String? _validarObservaciones(String? valor) {
-    if (!_esPemp) return null;
-
-    if (valor == null || valor.trim().isEmpty) {
-      return 'Ingresa las observaciones de la prueba.';
-    }
-
-    return null;
-  }
-
-  String? _validarFechaCaducidadLlanta() {
-    if (!_controlLlantas) return null;
-
-    if (_fechaCaducidadLlanta == null) {
-      return 'Selecciona la fecha de caducidad de la llanta.';
-    }
-
-    return null;
-  }
-
-  Future<DateTime?> _seleccionarFecha({
-    required DateTime fechaInicial,
-    bool permitirFechaFutura = false,
-  }) async {
-    return showDatePicker(
-      context: context,
-      initialDate: fechaInicial,
-      firstDate: DateTime(2000),
-      lastDate: permitirFechaFutura ? DateTime(2100) : DateTime.now(),
-      cancelText: 'Cancelar',
-      confirmText: 'Aceptar',
-    );
-  }
-
-  Future<void> _elegirFechaRealizado() async {
-    final fecha = await _seleccionarFecha(
-      fechaInicial: _fechaRealizado,
-    );
-
-    if (fecha != null && mounted) {
-      setState(() => _fechaRealizado = fecha);
-    }
-  }
-
-  Future<void> _elegirFechaProgramada() async {
-    final fecha = await _seleccionarFecha(
-      fechaInicial: _fechaProgramada ?? DateTime.now(),
-      permitirFechaFutura: true,
-    );
-
-    if (fecha != null && mounted) {
-      setState(() => _fechaProgramada = fecha);
-    }
-  }
-
-  Future<void> _elegirFechaCaducidadLlanta() async {
-    final fecha = await _seleccionarFecha(
-      fechaInicial: _fechaCaducidadLlanta ?? DateTime.now(),
-      permitirFechaFutura: true,
-    );
-
-    if (fecha != null && mounted) {
-      setState(() => _fechaCaducidadLlanta = fecha);
-    }
-  }
-
-  String _fechaTexto(DateTime? fecha) {
-    if (fecha == null) return 'Selecciona una fecha';
-
-    const meses = [
-      'ene',
-      'feb',
-      'mar',
-      'abr',
-      'may',
-      'jun',
-      'jul',
-      'ago',
-      'sep',
-      'oct',
-      'nov',
-      'dic',
-    ];
-
-    final dia = fecha.day.toString().padLeft(2, '0');
-    return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
-  }
-
-  void _agregarPieza() {
-    final nombre = _piezaController.text.trim();
-    final cantidad = int.tryParse(_cantidadPiezaController.text.trim());
-
-    if (nombre.isEmpty) {
-      _mensaje('Escribe el nombre de la pieza o refacción.');
-      return;
-    }
-
-    if (cantidad == null || cantidad <= 0) {
-      _mensaje('La cantidad debe ser mayor que cero.');
-      return;
-    }
-
+  // Agrega un par de campos para capturar una refacción y su cantidad.
+  // Entradas: nombre opcional y cantidad opcional para precargar los campos.
+  // Salida: ninguna; añade los controladores a sus listas.
+  void _agregarRefaccion({
+    String nombre = '',
+    String cantidad = '1',
+  }) {
     setState(() {
-      _piezas.add('$nombre ×$cantidad');
-      _piezaController.clear();
-      _cantidadPiezaController.text = '1';
+      _nombreRefaccionControllers.add(
+        TextEditingController(text: nombre),
+      );
+      _cantidadRefaccionControllers.add(
+        TextEditingController(text: cantidad),
+      );
     });
   }
 
-  Future<void> _guardar(String vehiculoUid) async {
-    FocusScope.of(context).unfocus();
+  // Quita una refacción y libera sus controladores.
+  // Entrada: indice de la refacción que se eliminará.
+  // Salida: ninguna; elimina los campos seleccionados del formulario.
+  void _quitarRefaccion(int indice) {
+    setState(() {
+      _nombreRefaccionControllers[indice].dispose();
+      _cantidadRefaccionControllers[indice].dispose();
+      _nombreRefaccionControllers.removeAt(indice);
+      _cantidadRefaccionControllers.removeAt(indice);
+    });
+  }
 
-    setState(() => _intentoGuardar = true);
+  // Abre un selector de fecha.
+  // Entrada: fechaActual opcional para establecer la fecha inicial del selector.
+  // Salida: fecha seleccionada o null si se cancela.
+  Future<DateTime?> _elegirFecha(DateTime? fechaActual) async {
+    final hoy = DateTime.now();
 
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    return showDatePicker(
+      context: context,
+      initialDate: fechaActual ?? hoy,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+  }
 
-    final errorCaducidad = _validarFechaCaducidadLlanta();
-    if (errorCaducidad != null) {
-      _mensaje(errorCaducidad);
-      return;
+  // Da formato a una fecha para mostrarla en el formulario.
+  // Entrada: fecha opcional que se desea presentar.
+  // Salida: fecha en formato día/mes/año o el texto para seleccionar una.
+  String _mostrarFecha(DateTime? fecha) {
+    if (fecha == null) return 'Seleccionar fecha';
+
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    return '$dia/$mes/${fecha.year}';
+  }
+
+  // Valida que el valor de un campo obligatorio tenga contenido.
+  // Entrada: valor escrito en el campo.
+  // Salida: mensaje de error si está vacío; de lo contrario, null.
+  String? _validarObligatorio(String? valor) {
+    if (valor == null || valor.trim().isEmpty) {
+      return 'Este campo es obligatorio.';
+    }
+    return null;
+  }
+
+  // Valida que un campo requerido contenga un número válido.
+  // Entrada: valor escrito en el campo numérico.
+  // Salida: mensaje de error si está vacío o no es numérico; de lo contrario, null.
+  String? _validarNumero(String? valor) {
+    if (valor == null || valor.trim().isEmpty) {
+      return 'Este campo es obligatorio.';
     }
 
-    final costo = _leerDecimal(_costoController.text);
-    if (costo == null) return;
+    if (double.tryParse(valor.trim()) == null) {
+      return 'Escribe un número válido.';
+    }
 
-    final mantenimiento = MantenimientoModel(
-      uid: widget.mantenimiento?.uid ?? '',
-      vehiculoUid: vehiculoUid,
-      rpeUsuario: widget.mantenimiento?.rpeUsuario ?? '',
-      tipoMantenimiento: _tipoMantenimiento,
-      modulo: _modulo,
-      fechaProgramada: _fechaProgramada,
-      fechaRealizado: _fechaRealizado,
-      kilometraje: int.tryParse(_kilometrajeController.text.trim()),
-      kilometrajeProgramado:
-          int.tryParse(_kilometrajeProgramadoController.text.trim()),
-      horometroHoras: _leerDecimal(_horometroController.text),
-      trabajoRealizado: _trabajoController.text.trim(),
-      piezasUtilizadas: _piezas.join('; '),
-      costo: costo,
-      proveedor: _proveedorController.text.trim(),
-      observaciones: _observacionesController.text.trim(),
-      fechaCaducidadLlanta:
-          _controlLlantas ? _fechaCaducidadLlanta : null,
-      vidaUtilLlantaKm: _controlLlantas
-          ? int.tryParse(_vidaUtilLlantaController.text.trim())
-          : null,
-      desgasteLlantaPorcentaje: _controlLlantas
-          ? _leerDecimal(_desgasteLlantaController.text)
-          : null,
-      categoriaPemp: _categoriaPempController.text.trim(),
-    );
+    return null;
+  }
 
-    setState(() => _guardando = true);
+  // Valida los campos, crea el modelo y lo registra o actualiza.
+  // Entrada: ninguna; utiliza los valores de los campos del formulario.
+  // Salida: ninguna; muestra el resultado y cierra el formulario si se guarda.
+  Future<void> _guardar() async {
+    FocusScope.of(context).unfocus();
 
-    final guardado = _esEdicion
-        ? await _viewModel.actualizarMantenimiento(mantenimiento)
-        : await _viewModel.registrarMantenimiento(mantenimiento);
+    if (!_formKey.currentState!.validate()) return;
 
-    if (!mounted) return;
-
-    setState(() => _guardando = false);
-
-    if (!guardado) {
-      _mensaje(
-        _viewModel.mensajeError ?? 'No se pudo guardar el mantenimiento.',
+    if (_esLaboratorio && _fechaPrueba == null) {
+      _mostrarMensaje(
+        'Selecciona la fecha de la prueba.',
+        esError: true,
       );
       return;
     }
 
-    Navigator.of(context).pop(true);
+    final refacciones = <DetalleRefaccionModel>[];
+
+    for (var i = 0; i < _nombreRefaccionControllers.length; i++) {
+      final nombre = _nombreRefaccionControllers[i].text.trim();
+      final cantidad = int.tryParse(
+        _cantidadRefaccionControllers[i].text.trim(),
+      );
+
+      if (nombre.isNotEmpty && cantidad != null && cantidad > 0) {
+        refacciones.add(
+          DetalleRefaccionModel(
+            nombre: nombre,
+            cantidad: cantidad,
+          ),
+        );
+      }
+    }
+
+    final mantenimientoAnterior = widget.mantenimiento;
+
+    final mantenimiento = MantenimientoModel(
+      uid: mantenimientoAnterior?.uid ?? '',
+      vehiculoUid: widget.vehiculo.uid,
+      usuarioUid: mantenimientoAnterior?.usuarioUid ?? '',
+      rpeUsuario: mantenimientoAnterior?.rpeUsuario ?? '',
+      tipoMantenimiento: _esLaboratorio ? 'prueba' : _tipoMantenimiento,
+      modulo: _modulo,
+      fechaProgramada: _fechaProgramada,
+      fechaRealizado: _fechaRealizado,
+      kilometrajeProgramado:
+          int.tryParse(_kilometrajeProgramadoController.text.trim()),
+      kilometrajeRealizado: _esLaboratorio
+          ? null
+          : int.tryParse(_kilometrajeRealizadoController.text.trim()),
+      horometro: _modulo == 'hidraulico'
+          ? double.tryParse(_horometroController.text.trim())
+          : null,
+      trabajoRealizado: _trabajoController.text.trim(),
+      detalleRefacciones: refacciones,
+      costo: double.tryParse(_costoController.text.trim()) ?? 0,
+      proveedor: _proveedorController.text.trim(),
+      observaciones: _observacionesController.text.trim(),
+      fechaCaducidadLlantas:
+          _controlLlantas ? _fechaCaducidadLlantas : null,
+      vidaUtilLlantas: _controlLlantas
+          ? double.tryParse(_vidaUtilLlantasController.text.trim())
+          : null,
+      nivelDesgasteLlantas: _controlLlantas
+          ? double.tryParse(_desgasteLlantasController.text.trim())
+          : null,
+      fechaPrueba: _esLaboratorio ? _fechaPrueba : null,
+      categoriaPrueba:
+          _esLaboratorio ? _categoriaPruebaController.text.trim() : '',
+      observacionesPrueba:
+          _esLaboratorio ? _observacionesController.text.trim() : '',
+    );
+
+    final resultado = mantenimientoAnterior == null
+        ? await _viewModel.registrarMantenimiento(mantenimiento)
+        : await _viewModel.actualizarMantenimiento(mantenimiento);
+
+    if (!mounted) return;
+
+    if (resultado) {
+      _mostrarMensaje(
+        _viewModel.mensajeExito ?? 'Mantenimiento guardado correctamente.',
+      );
+      Navigator.pop(context, true);
+    } else {
+      _mostrarMensaje(
+        _viewModel.mensajeError ?? 'No se pudo guardar el mantenimiento.',
+        esError: true,
+      );
+      _viewModel.limpiarMensajes();
+    }
   }
 
-  void _mensaje(String texto) {
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se presentará y esError para determinar el color.
+  // Salida: ninguna; muestra un SnackBar en la pantalla actual.
+  void _mostrarMensaje(String mensaje, {bool esError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(texto),
-          backgroundColor: AppTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
+          content: Text(mensaje),
+          backgroundColor: esError ? AppTheme.errorRed : AppTheme.cfeGreen,
         ),
       );
   }
 
-  Widget _fechaCampo({
+  // Construye un campo de texto reutilizable para el formulario.
+  // Entradas: etiqueta, controlador y opciones de validación, tamaño,
+  // teclado y texto de ayuda.
+  // Salida: un TextFormField configurado con los valores recibidos.
+  Widget _campoTexto({
+    required String etiqueta,
+    required TextEditingController controller,
+    String? Function(String?)? validator,
+    int maxLineas = 1,
+    TextInputType? teclado,
+    String? ayuda,
+  }) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      maxLines: maxLineas,
+      keyboardType: teclado,
+      decoration: InputDecoration(
+        labelText: etiqueta,
+        hintText: ayuda,
+      ),
+    );
+  }
+
+  // Construye un botón para seleccionar una fecha.
+  // Entradas: etiqueta, fecha actual y función alElegir para recibir la selección.
+  // Salida: un widget con botón de calendario y fecha seleccionada.
+  Widget _selectorFecha({
     required String etiqueta,
     required DateTime? fecha,
-    required VoidCallback alTocar,
+    required ValueChanged<DateTime> alElegir,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _etiqueta(etiqueta),
+        Text(etiqueta),
         const SizedBox(height: 6),
-        InkWell(
-          onTap: _guardando ? null : alTocar,
-          borderRadius: BorderRadius.circular(12),
-          child: InputDecorator(
-            decoration: const InputDecoration(
-              suffixIcon: Icon(Icons.calendar_month_outlined),
-            ),
-            child: Text(_fechaTexto(fecha)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _etiqueta(String texto) {
-    return Text(
-      texto,
-      style: const TextStyle(
-        color: AppTheme.primaryText,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  Widget _dosColumnas(Widget primero, Widget segundo) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 360) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              primero,
-              const SizedBox(height: 14),
-              segundo,
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: primero),
-            const SizedBox(width: 12),
-            Expanded(child: segundo),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _campoKilometraje({
-    required TextEditingController controller,
-    required String etiqueta,
-    required String? Function(String?) validar,
-  }) {
-    return TextFormField(
-      controller: controller,
-      enabled: !_guardando,
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      decoration: InputDecoration(
-        labelText: etiqueta,
-        suffixText: 'km',
-      ),
-      validator: validar,
-    );
-  }
-
-  Widget _campoCosto() {
-    return TextFormField(
-      controller: _costoController,
-      enabled: !_guardando,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(
-          RegExp(r'^\d*([.,]\d{0,2})?$'),
-        ),
-      ],
-      decoration: const InputDecoration(
-        labelText: 'Costo',
-        prefixText: '\$ ',
-      ),
-      validator: _validarCosto,
-    );
-  }
-
-  Widget _campoProveedor() {
-    return TextFormField(
-      controller: _proveedorController,
-      enabled: !_guardando,
-      textCapitalization: TextCapitalization.words,
-      decoration: const InputDecoration(
-        labelText: 'Responsable o proveedor',
-      ),
-      validator: (valor) =>
-          _validarObligatorio(valor, 'el responsable o proveedor'),
-    );
-  }
-
-  Widget _seccionPiezas() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _etiqueta('Piezas o refacciones utilizadas'),
-        const SizedBox(height: 8),
-        if (_piezas.isNotEmpty)
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: _piezas.map((pieza) {
-              return Chip(
-                label: Text(pieza),
-                onDeleted: _guardando
-                    ? null
-                    : () {
-                        setState(() => _piezas.remove(pieza));
-                      },
-              );
-            }).toList(),
-          ),
-        _dosColumnas(
-          TextField(
-            controller: _piezaController,
-            enabled: !_guardando,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Pieza o refacción',
-              hintText: 'Ej. Balatas delanteras',
-            ),
-          ),
-          TextField(
-            controller: _cantidadPiezaController,
-            enabled: !_guardando,
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            decoration: const InputDecoration(
-              labelText: 'Cantidad',
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: _guardando ? null : _agregarPieza,
-          icon: const Icon(Icons.add),
-          label: const Text('Agregar pieza o refacción'),
+          onPressed: () async {
+            final seleccionada = await _elegirFecha(fecha);
+            if (seleccionada != null) {
+              alElegir(seleccionada);
+            }
+          },
+          icon: const Icon(Icons.calendar_today_outlined),
+          label: Text(_mostrarFecha(fecha)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+          ),
         ),
       ],
     );
   }
 
-  Widget _camposLlantas() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Registrar control de llantas'),
-          value: _controlLlantas,
-          onChanged: _guardando
-              ? null
-              : (valor) {
-                  setState(() => _controlLlantas = valor);
-                },
-        ),
-        if (_controlLlantas) ...[
-          _fechaCampo(
-            etiqueta: 'Fecha de caducidad',
-            fecha: _fechaCaducidadLlanta,
-            alTocar: _elegirFechaCaducidadLlanta,
-          ),
-          const SizedBox(height: 14),
-          _campoKilometraje(
-            controller: _vidaUtilLlantaController,
-            etiqueta: 'Vida útil de la llanta',
-            validar: (valor) {
-              if (!_controlLlantas) return null;
-              if (valor == null || valor.trim().isEmpty) {
-                return 'Ingresa la vida útil en kilómetros.';
-              }
-
-              final vidaUtil = int.tryParse(valor.trim());
-              if (vidaUtil == null || vidaUtil <= 0) {
-                return 'La vida útil debe ser mayor que cero.';
-              }
-
-              return null;
-            },
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _desgasteLlantaController,
-            enabled: !_guardando,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(
-                RegExp(r'^\d{0,3}([.,]\d{0,2})?$'),
-              ),
-            ],
-            decoration: const InputDecoration(
-              labelText: 'Nivel de desgaste',
-              suffixText: '%',
-            ),
-            validator: (valor) {
-              if (!_controlLlantas) return null;
-              if (valor == null || valor.trim().isEmpty) {
-                return 'Ingresa el desgaste de la llanta.';
-              }
-
-              final desgaste = _leerDecimal(valor);
-              if (desgaste == null || desgaste < 0 || desgaste > 100) {
-                return 'El desgaste debe estar entre 0 y 100%.';
-              }
-
-              return null;
-            },
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _contenidoFormulario(
-    List<VehiculoModel> vehiculos,
-    String vehiculoUidSeleccionado,
-  ) {
-    return Form(
-      key: _formKey,
-      autovalidateMode: _intentoGuardar
-          ? AutovalidateMode.onUserInteraction
-          : AutovalidateMode.disabled,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _esEdicion ? 'Editar mantenimiento' : 'Registrar mantenimiento',
-            style: const TextStyle(
-              color: AppTheme.primaryText,
-              fontSize: 20,
+  // Construye un título para separar las secciones del formulario.
+  // Entrada: titulo que se mostrará.
+  // Salida: un widget de texto con el estilo de sección.
+  Widget _tituloSeccion(String titulo) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 10),
+      child: Text(
+        titulo,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: AppTheme.cfeGreen,
             ),
-          ),
-          const SizedBox(height: 20),
-
-          DropdownButtonFormField<String>(
-            value: vehiculoUidSeleccionado,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Vehículo',
-              prefixIcon: Icon(Icons.local_shipping_outlined),
-            ),
-            items: vehiculos.map((vehiculo) {
-              return DropdownMenuItem<String>(
-                value: vehiculo.uid,
-                child: Text(
-                  '${vehiculo.numeroEconomico} · '
-                  '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
-            onChanged: _guardando
-                ? null
-                : (valor) {
-                    if (valor != null) {
-                      setState(() => _vehiculoUid = valor);
-                    }
-                  },
-          ),
-          const SizedBox(height: 14),
-
-          DropdownButtonFormField<String>(
-            value: _modulo,
-            decoration: const InputDecoration(
-              labelText: 'Módulo',
-              prefixIcon: Icon(Icons.build_outlined),
-            ),
-            items: const [
-              DropdownMenuItem(
-                value: 'mecanico',
-                child: Text('Mecánico'),
-              ),
-              DropdownMenuItem(
-                value: 'hidraulico',
-                child: Text('Hidráulico'),
-              ),
-              DropdownMenuItem(
-                value: 'laboratorio_pemp',
-                child: Text('Laboratorio de pruebas PEMP'),
-              ),
-            ],
-            onChanged: _guardando
-                ? null
-                : (valor) {
-                    if (valor == null) return;
-
-                    setState(() {
-                      _modulo = valor;
-                      _tipoMantenimiento = valor == 'laboratorio_pemp'
-                          ? 'prueba'
-                          : 'preventivo';
-                    });
-                  },
-          ),
-
-          if (!_esPemp) ...[
-            const SizedBox(height: 16),
-            _etiqueta('Tipo de mantenimiento'),
-            const SizedBox(height: 8),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'preventivo',
-                  label: Text('Preventivo'),
-                ),
-                ButtonSegment(
-                  value: 'correctivo',
-                  label: Text('Correctivo'),
-                ),
-              ],
-              selected: {_tipoMantenimiento},
-              showSelectedIcon: false,
-              onSelectionChanged: _guardando
-                  ? null
-                  : (seleccion) {
-                      if (seleccion.isNotEmpty) {
-                        setState(
-                          () => _tipoMantenimiento = seleccion.first,
-                        );
-                      }
-                    },
-            ),
-          ],
-
-          const SizedBox(height: 16),
-          _dosColumnas(
-            _fechaCampo(
-              etiqueta: 'Fecha realizada',
-              fecha: _fechaRealizado,
-              alTocar: _elegirFechaRealizado,
-            ),
-            _debeCapturarKilometraje
-                ? _campoKilometraje(
-                    controller: _kilometrajeController,
-                    etiqueta: 'Kilometraje',
-                    validar: _validarKilometraje,
-                  )
-                : const SizedBox.shrink(),
-          ),
-
-          if (_modulo == 'mecanico' && _esPreventivo) ...[
-            const SizedBox(height: 14),
-            _dosColumnas(
-              _fechaCampo(
-                etiqueta: 'Fecha del próximo servicio (opcional)',
-                fecha: _fechaProgramada,
-                alTocar: _elegirFechaProgramada,
-              ),
-              _campoKilometraje(
-                controller: _kilometrajeProgramadoController,
-                etiqueta: 'Km del próximo servicio',
-                validar: _validarKilometrajeProgramado,
-              ),
-            ),
-          ],
-
-          if (_modulo == 'hidraulico' && _esPreventivo) ...[
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _horometroController,
-              enabled: !_guardando,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'^\d*([.,]\d{0,2})?$'),
-                ),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Lectura del horómetro',
-                suffixText: 'horas',
-              ),
-              validator: (valor) => _modulo == 'hidraulico' &&
-                      _esPreventivo
-                  ? _validarHorometro(valor)
-                  : null,
-            ),
-          ],
-
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _trabajoController,
-            enabled: !_guardando,
-            minLines: 2,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Descripción del trabajo realizado',
-              hintText: 'Describe el mantenimiento, reparación o prueba',
-              alignLabelWithHint: true,
-            ),
-            validator: (valor) =>
-                _validarObligatorio(valor, 'la descripción del trabajo'),
-          ),
-
-          const SizedBox(height: 16),
-          _seccionPiezas(),
-
-          const SizedBox(height: 16),
-          _dosColumnas(
-            _campoCosto(),
-            _campoProveedor(),
-          ),
-
-          if (_esPemp) ...[
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _categoriaPempController,
-              enabled: !_guardando,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Categoría asignada en la prueba PEMP',
-              ),
-              validator: _validarCategoria,
-            ),
-          ],
-
-          if (_modulo == 'mecanico') ...[
-            const SizedBox(height: 12),
-            _camposLlantas(),
-          ],
-
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _observacionesController,
-            enabled: !_guardando,
-            minLines: 2,
-            maxLines: 4,
-            maxLength: 250,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Observaciones',
-              hintText: 'Opcional',
-              alignLabelWithHint: true,
-            ),
-            validator: _validarObservaciones,
-          ),
-
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: _guardando
-                  ? null
-                  : () => _guardar(vehiculoUidSeleccionado),
-              icon: _guardando
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.pureWhite,
-                      ),
-                    )
-                  : const Icon(Icons.check),
-              label: Text(
-                _guardando
-                    ? 'Guardando…'
-                    : _esEdicion
-                        ? 'Guardar cambios'
-                        : 'Guardar mantenimiento',
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 52,
-            child: OutlinedButton(
-              onPressed:
-                  _guardando ? null : () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-          ),
-        ],
       ),
     );
   }
 
+  // Construye la interfaz del formulario según el tipo de mantenimiento.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets con campos y acciones.
   @override
   Widget build(BuildContext context) {
+    final estaEditando = widget.mantenimiento != null;
+
     return Scaffold(
-      backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
+        title: Text(
+          estaEditando
+              ? 'Editar mantenimiento'
+              : 'Registrar mantenimiento',
+        ),
         backgroundColor: AppTheme.cfeGreen,
         foregroundColor: AppTheme.pureWhite,
-        title: Text(
-          _esEdicion ? 'Editar mantenimiento' : 'Registrar mantenimiento',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
       ),
       body: SafeArea(
-        child: StreamBuilder<List<VehiculoModel>>(
-          stream: _vehiculosStream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'No se pudieron cargar los vehículos. Revisa tu conexión.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
-            }
-
-            final vehiculos = snapshot.data ?? [];
-
-            if (vehiculos.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'No hay vehículos disponibles para registrar mantenimiento.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
-            }
-
-            String vehiculoUidSeleccionado =
-                _vehiculoUid ?? vehiculos.first.uid;
-
-            if (!vehiculos.any(
-              (vehiculo) => vehiculo.uid == vehiculoUidSeleccionado,
-            )) {
-              vehiculoUidSeleccionado = vehiculos.first.uid;
-            }
-
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 700),
-                  child: Card(
-                    color: AppTheme.pureWhite,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: AppTheme.border),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 850),
+            child: Card(
+              margin: const EdgeInsets.all(20),
+              color: AppTheme.pureWhite,
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    Text(
+                      'Vehículo',
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: _contenidoFormulario(
-                        vehiculos,
-                        vehiculoUidSeleccionado,
+                    const SizedBox(height: 8),
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.local_shipping_outlined),
+                      ),
+                      child: Text(
+                        '${widget.vehiculo.numeroEconomico} · '
+                        '${widget.vehiculo.marca} '
+                        '${widget.vehiculo.modelo} '
+                        '${widget.vehiculo.anio}',
                       ),
                     ),
-                  ),
+                    _tituloSeccion('Tipo de registro'),
+                    DropdownButtonFormField<String>(
+                      value: _modulo == 'laboratorio_pemp'
+                          ? 'prueba'
+                          : _tipoMantenimiento,
+                      decoration: const InputDecoration(
+                        labelText: 'Tipo de mantenimiento',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'preventivo',
+                          child: Text('Preventivo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'correctivo',
+                          child: Text('Correctivo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'prueba',
+                          child: Text('Prueba PEMP'),
+                        ),
+                      ],
+                      onChanged: (valor) {
+                        if (valor == null) return;
+
+                        setState(() {
+                          if (valor == 'prueba') {
+                            _modulo = 'laboratorio_pemp';
+                          } else {
+                            _tipoMantenimiento = valor;
+                            if (_modulo == 'laboratorio_pemp') {
+                              _modulo = 'mecanico';
+                            }
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _modulo,
+                      decoration: const InputDecoration(
+                        labelText: 'Módulo',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'mecanico',
+                          child: Text('Mecánico'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'hidraulico',
+                          child: Text('Hidráulico'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'laboratorio_pemp',
+                          child: Text('Laboratorio PEMP'),
+                        ),
+                      ],
+                      onChanged: (valor) {
+                        if (valor == null) return;
+
+                        setState(() {
+                          _modulo = valor;
+                          if (_modulo == 'laboratorio_pemp') {
+                            _tipoMantenimiento = 'prueba';
+                          } else if (_tipoMantenimiento == 'prueba') {
+                            _tipoMantenimiento = 'preventivo';
+                          }
+                        });
+                      },
+                    ),
+                    if (_esLaboratorio) ...[
+                      _tituloSeccion('Prueba de equipo PEMP'),
+                      _selectorFecha(
+                        etiqueta: 'Fecha de la prueba',
+                        fecha: _fechaPrueba,
+                        alElegir: (fecha) {
+                          setState(() => _fechaPrueba = fecha);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      _campoTexto(
+                        etiqueta: 'Categoría asignada',
+                        controller: _categoriaPruebaController,
+                        validator: _validarObligatorio,
+                      ),
+                      const SizedBox(height: 14),
+                      _campoTexto(
+                        etiqueta: 'Observaciones de la prueba',
+                        controller: _observacionesController,
+                        maxLineas: 3,
+                      ),
+                    ] else ...[
+                      _tituloSeccion('Fechas y lecturas'),
+                      _selectorFecha(
+                        etiqueta: 'Fecha programada (opcional)',
+                        fecha: _fechaProgramada,
+                        alElegir: (fecha) {
+                          setState(() => _fechaProgramada = fecha);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      _selectorFecha(
+                        etiqueta: 'Fecha del servicio',
+                        fecha: _fechaRealizado,
+                        alElegir: (fecha) {
+                          setState(() => _fechaRealizado = fecha);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      if (_modulo == 'mecanico' &&
+                          _tipoMantenimiento == 'preventivo')
+                        _campoTexto(
+                          etiqueta: 'Kilometraje programado',
+                          controller: _kilometrajeProgramadoController,
+                          validator: _validarNumero,
+                          teclado: TextInputType.number,
+                        ),
+                      if (_modulo != 'hidraulico' ||
+                          _tipoMantenimiento == 'preventivo') ...[
+                        const SizedBox(height: 14),
+                        _campoTexto(
+                          etiqueta: 'Kilometraje del servicio',
+                          controller: _kilometrajeRealizadoController,
+                          validator: _validarNumero,
+                          teclado: TextInputType.number,
+                        ),
+                      ],
+                      if (_modulo == 'hidraulico') ...[
+                        const SizedBox(height: 14),
+                        _campoTexto(
+                          etiqueta: 'Horómetro (horas)',
+                          controller: _horometroController,
+                          validator: _validarNumero,
+                          teclado: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                        ),
+                      ],
+                      _tituloSeccion('Trabajo y responsable'),
+                      _campoTexto(
+                        etiqueta: 'Descripción del trabajo realizado',
+                        controller: _trabajoController,
+                        validator: _validarObligatorio,
+                        maxLineas: 3,
+                      ),
+                      const SizedBox(height: 14),
+                      _campoTexto(
+                        etiqueta: 'Responsable o proveedor',
+                        controller: _proveedorController,
+                        validator: _validarObligatorio,
+                      ),
+                      _tituloSeccion('Refacciones utilizadas'),
+                      for (var i = 0;
+                          i < _nombreRefaccionControllers.length;
+                          i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _nombreRefaccionControllers[i],
+                                  decoration: InputDecoration(
+                                    labelText: 'Nombre de refacción ${i + 1}',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              SizedBox(
+                                width: 110,
+                                child: TextFormField(
+                                  controller:
+                                      _cantidadRefaccionControllers[i],
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Cantidad',
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Quitar refacción',
+                                onPressed: () => _quitarRefaccion(i),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: AppTheme.errorRed,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      OutlinedButton.icon(
+                        onPressed: () => _agregarRefaccion(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Agregar refacción'),
+                      ),
+                      if (_modulo == 'mecanico') ...[
+                        _tituloSeccion('Control de llantas'),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Registrar datos de llantas'),
+                          value: _controlLlantas,
+                          onChanged: (valor) {
+                            setState(() => _controlLlantas = valor);
+                          },
+                        ),
+                        if (_controlLlantas) ...[
+                          _selectorFecha(
+                            etiqueta: 'Fecha de caducidad',
+                            fecha: _fechaCaducidadLlantas,
+                            alElegir: (fecha) {
+                              setState(
+                                () => _fechaCaducidadLlantas = fecha,
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          _campoTexto(
+                            etiqueta: 'Vida útil (km)',
+                            controller: _vidaUtilLlantasController,
+                            teclado: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _campoTexto(
+                            etiqueta: 'Desgaste (%)',
+                            controller: _desgasteLlantasController,
+                            teclado: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                        ],
+                      ],
+                      _tituloSeccion('Costo y observaciones'),
+                      _campoTexto(
+                        etiqueta: 'Costo',
+                        controller: _costoController,
+                        validator: _validarNumero,
+                        teclado: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _campoTexto(
+                        etiqueta: 'Observaciones (opcional)',
+                        controller: _observacionesController,
+                        maxLineas: 3,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    ListenableBuilder(
+                      listenable: _viewModel,
+                      builder: (context, child) {
+                        return ElevatedButton.icon(
+                          onPressed: _viewModel.cargando ? null : _guardar,
+                          icon: _viewModel.cargando
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.pureWhite,
+                                  ),
+                                )
+                              : const Icon(Icons.check),
+                          label: Text(
+                            _viewModel.cargando
+                                ? 'Guardando...'
+                                : estaEditando
+                                    ? 'Guardar cambios'
+                                    : 'Guardar mantenimiento',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(56),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      onPressed: _viewModel.cargando
+                          ? null
+                          : () => Navigator.pop(context),
+                      child: const Text('Cancelar'),
+                    ),
+                  ],
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

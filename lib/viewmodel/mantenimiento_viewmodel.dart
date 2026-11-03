@@ -1,250 +1,156 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
+import 'package:p_vehicular/models/vehiculos_model.dart';
 import '../models/mantenimiento_model.dart';
-import '../models/vehiculos_model.dart';
 import '../repositories/mantenimiento_repositorie.dart';
-import '../repositories/vehiculo_repositorie.dart';
 
+// Coordina las operaciones de mantenimiento entre la interfaz y el repositorio.
 class MantenimientoViewModel extends ChangeNotifier {
-  final MantenimientoRepositorie _repositorio =
-      MantenimientoRepositorie();
-  final VehiculoRepositorie _vehiculoRepositorio =
-      VehiculoRepositorie();
+  // Repositorio que consulta y administra los datos de mantenimiento.
+  final MantenimientoRepositorie _repositorio = MantenimientoRepositorie();
 
+  // Indica si hay una operación en curso.
   bool _cargando = false;
+
+  // Contiene el mensaje de error actual, si existe.
   String? _mensajeError;
+
+  // Contiene el mensaje de éxito actual, si existe.
   String? _mensajeExito;
 
+  // Devuelve el estado actual de carga.
   bool get cargando => _cargando;
+
+  // Devuelve el mensaje de error actual.
   String? get mensajeError => _mensajeError;
+
+  // Devuelve el mensaje de éxito actual.
   String? get mensajeExito => _mensajeExito;
 
+  // Obtiene los vehículos disponibles.
+  // Entrada: ninguna.
+  // Salida: un flujo con la lista de vehículos.
   Stream<List<VehiculoModel>> obtenerVehiculos() {
-    return _vehiculoRepositorio.obtenerVehiculos();
+    return _repositorio.obtenerVehiculos();
   }
 
+  // Obtiene el historial de mantenimientos de un vehículo.
+  // Entrada: vehiculoUid, identificador del vehículo que se consultará.
+  // Salida: un flujo con los mantenimientos del vehículo.
   Stream<List<MantenimientoModel>> obtenerMantenimientos({
-    String? vehiculoUid,
-    String? modulo,
+    required String vehiculoUid,
   }) {
     return _repositorio.obtenerMantenimientos(
       vehiculoUid: vehiculoUid,
-      modulo: modulo,
     );
   }
 
+  // Registra un mantenimiento y actualiza los mensajes de estado.
+  // Entrada: mantenimiento con los datos del servicio y sus refacciones.
+  // Salida: true si se registra correctamente; false si ocurre un error.
   Future<bool> registrarMantenimiento(
     MantenimientoModel mantenimiento,
   ) async {
-    final error = _validar(mantenimiento);
-
-    if (error != null) {
-      _mensajeError = error;
-      _mensajeExito = null;
-      notifyListeners();
-      return false;
-    }
-
-    _iniciarCarga();
+    _iniciarOperacion();
 
     try {
       await _repositorio.registrarMantenimiento(mantenimiento);
-      _mensajeExito = 'El mantenimiento se registró correctamente.';
+      _mensajeExito = 'Mantenimiento registrado correctamente.';
       return true;
     } catch (error) {
       _mensajeError = _mensajeAmigable(error);
       return false;
     } finally {
-      _terminarCarga();
+      _terminarOperacion();
     }
   }
 
+  // Actualiza un mantenimiento existente.
+  // Entrada: mantenimiento con el identificador y los datos actualizados.
+  // Salida: true si se actualiza correctamente; false si ocurre un error.
   Future<bool> actualizarMantenimiento(
     MantenimientoModel mantenimiento,
   ) async {
-    final error = _validar(mantenimiento);
-
-    if (error != null) {
-      _mensajeError = error;
-      _mensajeExito = null;
-      notifyListeners();
-      return false;
-    }
-
-    if (mantenimiento.uid.trim().isEmpty) {
-      _mensajeError = 'No se encontró el identificador del mantenimiento.';
-      _mensajeExito = null;
-      notifyListeners();
-      return false;
-    }
-
-    _iniciarCarga();
+    _iniciarOperacion();
 
     try {
       await _repositorio.actualizarMantenimiento(mantenimiento);
-      _mensajeExito = 'El mantenimiento se actualizó correctamente.';
+      _mensajeExito = 'Mantenimiento actualizado correctamente.';
       return true;
     } catch (error) {
       _mensajeError = _mensajeAmigable(error);
       return false;
     } finally {
-      _terminarCarga();
+      _terminarOperacion();
     }
   }
 
-  Future<bool> eliminarMantenimiento(String uid) async {
-    if (uid.trim().isEmpty) {
-      _mensajeError = 'No se encontró el identificador del mantenimiento.';
-      _mensajeExito = null;
-      notifyListeners();
-      return false;
-    }
-
-    _iniciarCarga();
+  // Elimina un mantenimiento y los detalles relacionados.
+  // Entrada: mantenimientoUid, identificador del mantenimiento que se eliminará.
+  // Salida: true si se elimina correctamente; false si ocurre un error.
+  Future<bool> eliminarMantenimiento(String mantenimientoUid) async {
+    _iniciarOperacion();
 
     try {
-      await _repositorio.eliminarMantenimiento(uid);
-      _mensajeExito = 'El mantenimiento se eliminó correctamente.';
+      await _repositorio.eliminarMantenimiento(mantenimientoUid);
+      _mensajeExito = 'Mantenimiento eliminado correctamente.';
       return true;
     } catch (error) {
       _mensajeError = _mensajeAmigable(error);
       return false;
     } finally {
-      _terminarCarga();
+      _terminarOperacion();
     }
   }
 
-  String? _validar(MantenimientoModel mantenimiento) {
-    if (mantenimiento.vehiculoUid.trim().isEmpty) {
-      return 'Selecciona un vehículo.';
-    }
-
-    if (mantenimiento.modulo.trim().isEmpty) {
-      return 'Selecciona el módulo del mantenimiento.';
-    }
-
-    if (mantenimiento.tipoMantenimiento.trim().isEmpty) {
-      return 'Selecciona el tipo de mantenimiento.';
-    }
-
-    if (mantenimiento.trabajoRealizado.trim().isEmpty) {
-      return 'Describe el trabajo realizado.';
-    }
-
-    if (mantenimiento.costo < 0) {
-      return 'El costo no puede ser negativo.';
-    }
-
-    if (mantenimiento.kilometraje != null &&
-        mantenimiento.kilometraje! < 0) {
-      return 'El kilometraje no puede ser negativo.';
-    }
-
-    if (mantenimiento.horometroHoras != null &&
-        mantenimiento.horometroHoras! < 0) {
-      return 'Las horas del horómetro no pueden ser negativas.';
-    }
-
-    if (mantenimiento.fechaRealizado.isAfter(DateTime.now())) {
-      return 'La fecha realizada no puede ser posterior a hoy.';
-    }
-
-    // Los mantenimientos preventivos mecánicos requieren kilometraje.
-    if (mantenimiento.modulo == 'mecanico' &&
-        mantenimiento.tipoMantenimiento == 'preventivo' &&
-        mantenimiento.kilometraje == null) {
-      return 'Ingresa el kilometraje del mantenimiento preventivo.';
-    }
-
-    // Los preventivos hidráulicos requieren kilometraje y horómetro.
-    if (mantenimiento.modulo == 'hidraulico' &&
-        mantenimiento.tipoMantenimiento == 'preventivo') {
-      if (mantenimiento.kilometraje == null) {
-        return 'Ingresa el kilometraje del mantenimiento hidráulico.';
-      }
-
-      if (mantenimiento.horometroHoras == null) {
-        return 'Ingresa las horas del horómetro.';
-      }
-    }
-
-    // Las pruebas PEMP requieren una categoría asignada.
-    if (mantenimiento.modulo == 'laboratorio_pemp' &&
-        mantenimiento.categoriaPemp.trim().isEmpty) {
-      return 'Selecciona la categoría de la prueba PEMP.';
-    }
-
-    // Si se capturan datos de llantas, deben estar completos.
-    final tieneDatosDeLlanta =
-        mantenimiento.fechaCaducidadLlanta != null ||
-        mantenimiento.vidaUtilLlantaKm != null ||
-        mantenimiento.desgasteLlantaPorcentaje != null;
-
-    if (tieneDatosDeLlanta) {
-      if (mantenimiento.modulo != 'mecanico') {
-        return 'El control de llantas corresponde al módulo mecánico.';
-      }
-
-      if (mantenimiento.fechaCaducidadLlanta == null) {
-        return 'Ingresa la fecha de caducidad de la llanta.';
-      }
-
-      if (mantenimiento.vidaUtilLlantaKm == null ||
-          mantenimiento.vidaUtilLlantaKm! <= 0) {
-        return 'La vida útil de la llanta debe ser mayor que cero.';
-      }
-
-      final desgaste = mantenimiento.desgasteLlantaPorcentaje;
-      if (desgaste == null || desgaste < 0 || desgaste > 100) {
-        return 'El desgaste debe estar entre 0 y 100%.';
-      }
-    }
-
-    return null;
-  }
-
-  String _mensajeAmigable(Object error) {
-    if (error is StateError) {
-      return error.message.toString();
-    }
-
-    if (error is ArgumentError) {
-      return error.message?.toString() ?? 'Revisa los datos ingresados.';
-    }
-
-    if (error is FirebaseException) {
-      if (error.code == 'permission-denied') {
-        return 'No tienes permiso para realizar esta acción.';
-      }
-
-      if (error.code == 'unauthenticated') {
-        return 'Tu sesión venció. Inicia sesión nuevamente.';
-      }
-
-      if (error.code == 'unavailable') {
-        return 'No hay conexión con el servicio. Inténtalo de nuevo.';
-      }
-    }
-
-    return 'Ocurrió un error. Verifica tu conexión e inténtalo nuevamente.';
-  }
-
-  void limpiarMensajes() {
-    _mensajeError = null;
-    _mensajeExito = null;
-    notifyListeners();
-  }
-
-  void _iniciarCarga() {
+  // Activa el estado de carga, limpia mensajes anteriores y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece cargando en true.
+  void _iniciarOperacion() {
     _cargando = true;
     _mensajeError = null;
     _mensajeExito = null;
     notifyListeners();
   }
 
-  void _terminarCarga() {
+  // Desactiva el estado de carga y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece cargando en false.
+  void _terminarOperacion() {
     _cargando = false;
+    notifyListeners();
+  }
+
+  // Convierte una excepción en un mensaje comprensible para el usuario.
+  // Entrada: error recibido durante una operación.
+  // Salida: texto que describe el problema o sugiere qué hacer.
+  String _mensajeAmigable(Object error) {
+    if (error is StateError || error is ArgumentError) {
+      return error.toString().replaceFirst('Bad state: ', '');
+    }
+
+    if (error is FirebaseException) {
+      if (error.code == 'unavailable') {
+        return 'No hay conexión. Revisa tu conexión e inténtalo de nuevo.';
+      }
+
+      if (error.code == 'permission-denied') {
+        return 'No tienes permiso para realizar esta operación.';
+      }
+
+      return 'Ocurrió un error al guardar la información. '
+          'Inténtalo nuevamente.';
+    }
+
+    return 'Ocurrió un error inesperado. Inténtalo nuevamente.';
+  }
+
+  // Limpia los mensajes actuales y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; deja los mensajes en null.
+  void limpiarMensajes() {
+    _mensajeError = null;
+    _mensajeExito = null;
     notifyListeners();
   }
 }

@@ -1,0 +1,339 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import '../core/routes/app_routes.dart';
+import '../core/theme/app_theme.dart';
+
+// Pantalla principal del superusuario.
+class SuperHomeView extends StatelessWidget {
+  // Crea la pantalla principal del superusuario.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de SuperHomeView.
+  const SuperHomeView({super.key});
+
+  // Obtiene en tiempo real el documento del usuario autenticado.
+  // Entrada: ninguna; utiliza la sesión actual de Firebase Authentication.
+  // Salida: un flujo con el documento del usuario o un flujo vacío si no hay sesión.
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _obtenerUsuario() {
+    final usuarioActual = FirebaseAuth.instance.currentUser;
+
+    if (usuarioActual == null) {
+      return const Stream.empty();
+    }
+
+    return FirebaseFirestore.instance
+        .collection('usuario')
+        .doc(usuarioActual.uid)
+        .snapshots();
+  }
+
+  // Cierra la sesión y redirige a la pantalla de inicio de sesión.
+  // Entrada: context de la pantalla actual.
+  // Salida: ninguna; navega al inicio de sesión o muestra un mensaje si falla.
+  Future<void> _logout(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+
+      if (!context.mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.login,
+        (route) => false,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo cerrar la sesión. Intenta nuevamente.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
+  }
+
+  // Construye la pantalla con el encabezado y los módulos disponibles.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla principal.
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: AppTheme.pearlWhite,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _encabezado(context),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Módulos',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: AppTheme.primaryText,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final esCelular = constraints.maxWidth < 600;
+
+                        return GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: esCelular ? 2 : 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: esCelular ? 1.7 : 2.5,
+                          children: [
+                            _tarjetaModulo(
+                              context,
+                              Icons.people_alt_outlined,
+                              'Usuarios',
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.usuarios,
+                                );
+                              },
+                            ),
+                            _tarjetaModulo(
+                              context,
+                              Icons.dns_outlined,
+                              'Respaldo de BD',
+                              () {},
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Construye el encabezado con el nombre del usuario y las acciones de cuenta.
+  // Entrada: context de la pantalla actual.
+  // Salida: un widget con identidad del sistema, notificaciones y cierre de sesión.
+  Widget _encabezado(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      color: AppTheme.cfeGreen,
+      padding: const EdgeInsets.fromLTRB(24, 20, 12, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentYellow,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.bolt,
+                  color: AppTheme.accentText,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Parque Vehicular • Distribución Civac',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppTheme.pureWhite,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Notificaciones',
+                constraints: const BoxConstraints(
+                  minWidth: 48,
+                  minHeight: 48,
+                ),
+                icon: const Icon(
+                  Icons.notifications_none,
+                  color: AppTheme.pureWhite,
+                  size: 26,
+                ),
+                onPressed: () {},
+              ),
+              IconButton(
+                tooltip: 'Cerrar sesión',
+                constraints: const BoxConstraints(
+                  minWidth: 48,
+                  minHeight: 48,
+                ),
+                icon: const Icon(
+                  Icons.logout,
+                  color: AppTheme.pureWhite,
+                  size: 24,
+                ),
+                onPressed: () => _logout(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: _obtenerUsuario(),
+            builder: (context, snapshot) {
+              var nombreUsuario = 'superusuario';
+
+              if (snapshot.hasError) {
+                nombreUsuario = 'No se pudo cargar el nombre';
+              } else if (snapshot.hasData && snapshot.data!.exists) {
+                final datos = snapshot.data!.data();
+
+                if (datos != null) {
+                  final nombre = datos['nombre']?.toString().trim() ?? '';
+                  final apellidoP =
+                      datos['apellidoP']?.toString().trim() ?? '';
+                  final apellidoM =
+                      datos['apellidoM']?.toString().trim() ?? '';
+
+                  final nombreCompleto = [
+                    nombre,
+                    apellidoP,
+                    apellidoM,
+                  ].where((parte) => parte.isNotEmpty).join(' ');
+
+                  if (nombreCompleto.isNotEmpty) {
+                    nombreUsuario = nombreCompleto;
+                  }
+                }
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      nombreUsuario,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.pureWhite,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 136,
+                    child: _Rolsuper(),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Construye una tarjeta interactiva para abrir un módulo.
+  // Entradas: context, icono, etiqueta y alTocar, acción al pulsar.
+  // Salida: una tarjeta que muestra el módulo y ejecuta la acción indicada.
+  Widget _tarjetaModulo(
+    BuildContext context,
+    IconData icono,
+    String etiqueta,
+    VoidCallback alTocar,
+  ) {
+    return Card(
+      elevation: 0,
+      color: AppTheme.pureWhite,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: alTocar,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Icon(
+                icono,
+                color: AppTheme.cfeGreen,
+                size: 24,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  etiqueta,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.primaryText,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Muestra una etiqueta visual que identifica el rol de superusuario.
+class _Rolsuper extends StatelessWidget {
+  // Crea la etiqueta del rol.
+  // Entrada: ninguna.
+  // Salida: una instancia de _Rolsuper.
+  const _Rolsuper();
+
+  // Construye el botón desactivado que presenta el rol.
+  // Entrada: context de la pantalla actual.
+  // Salida: un botón con el icono y la etiqueta Superusuario.
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.tonal(
+      onPressed: null,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        maximumSize: const Size(136, 48),
+        disabledBackgroundColor: AppTheme.pureWhite.withValues(alpha: 0.15),
+        disabledForegroundColor: AppTheme.pureWhite,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.shield_outlined, size: 16),
+          SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'SuperUsuario',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

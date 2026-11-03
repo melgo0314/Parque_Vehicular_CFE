@@ -1,37 +1,60 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
 import '../models/combustible_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/combustible_viewmodel.dart';
 import 'form_combustible_view.dart';
 
+// Pantalla que muestra las cargas y permite crear, editar o eliminar registros.
 class CombustibleView extends StatefulWidget {
+  // Vehículos que la pantalla puede mostrar en el formulario de carga.
   final List<VehiculoModel> vehiculos;
 
+  // Crea la pantalla y recibe la lista inicial de vehículos.
+  // Entrada: key opcional y vehiculos que se utilizarán en los formularios.
+  // Salida: una instancia de CombustibleView.
   const CombustibleView({
     super.key,
     required this.vehiculos,
   });
 
+  // Crea el estado asociado a la pantalla.
+  // Entrada: ninguna.
+  // Salida: el estado que administra las cargas y los vehículos.
   @override
   State<CombustibleView> createState() => _CombustibleViewState();
 }
 
+// Estado y comportamiento de la pantalla de combustible.
 class _CombustibleViewState extends State<CombustibleView> {
+  // ViewModel que consulta y administra cargas de combustible.
   final _viewModel = CombustibleViewModel();
+
+  // Controlador del campo de búsqueda.
   final _busquedaController = TextEditingController();
 
+  // Lista de vehículos disponibles para asociar con las cargas.
   late List<VehiculoModel> _vehiculos;
+
+  // Suscripción usada para recibir cambios en la lista de vehículos.
   StreamSubscription<List<VehiculoModel>>? _suscripcionVehiculos;
 
+  // Texto escrito en el campo de búsqueda.
   String _busqueda = '';
+
+  // Identificador del vehículo seleccionado como filtro.
   String _vehiculoFiltro = '';
+
+  // Mensaje de error al cargar vehículos, si ocurre.
   String? _errorVehiculos;
+
+  // Indica si la lista de vehículos está cargando.
   bool _cargandoVehiculos = false;
 
+  // Inicializa la pantalla y carga vehículos si no recibió una lista.
+  // Entrada: ninguna.
+  // Salida: ninguna; prepara la lista de vehículos y su suscripción.
   @override
   void initState() {
     super.initState();
@@ -39,7 +62,7 @@ class _CombustibleViewState extends State<CombustibleView> {
     _vehiculos = widget.vehiculos;
 
     // Si la pantalla que abre este módulo pasa una lista vacía,
-    // carga los vehículos activos desde VehiculoRepositorie.
+    // carga los vehículos activos desde el ViewModel.
     if (_vehiculos.isEmpty) {
       _cargandoVehiculos = true;
 
@@ -66,6 +89,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     }
   }
 
+  // Cancela la suscripción y libera los recursos de la pantalla.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _suscripcionVehiculos?.cancel();
@@ -74,6 +100,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     super.dispose();
   }
 
+  // Abre el formulario para crear o editar una carga.
+  // Entrada: carga opcional; si se proporciona, el formulario edita ese registro.
+  // Salida: ninguna; muestra un mensaje si el formulario termina correctamente.
   Future<void> _abrirFormulario({CombustibleModel? carga}) async {
     if (_cargandoVehiculos) {
       _mostrarMensaje('Espera mientras se cargan los vehículos.');
@@ -106,6 +135,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     );
   }
 
+  // Pide confirmación antes de eliminar una carga.
+  // Entrada: carga que se desea eliminar.
+  // Salida: ninguna; elimina el registro si se confirma y muestra el resultado.
   Future<void> _confirmarEliminacion(CombustibleModel carga) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -149,6 +181,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     }
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: texto que se presentará y esError para determinar el color.
+  // Salida: ninguna; muestra un SnackBar en la pantalla.
   void _mostrarMensaje(String texto, {bool esError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -160,6 +195,9 @@ class _CombustibleViewState extends State<CombustibleView> {
       );
   }
 
+  // Filtra las cargas por vehículo y por los datos que coinciden con la búsqueda.
+  // Entradas: cargas que se van a filtrar y vehículos indexados por identificador.
+  // Salida: lista de cargas que cumplen los criterios actuales.
   List<CombustibleModel> _filtrarCargas(
     List<CombustibleModel> cargas,
     Map<String, VehiculoModel> vehiculosPorId,
@@ -194,6 +232,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     }).toList();
   }
 
+  // Da formato a una fecha para mostrarla en la lista de cargas.
+  // Entrada: fecha que se desea presentar.
+  // Salida: fecha con el formato día, mes abreviado y año.
   String _fechaFormateada(DateTime fecha) {
     const meses = [
       'ene',
@@ -214,6 +255,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
+  // Construye la interfaz de búsqueda, el historial y el botón para registrar.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla de combustible.
   @override
   Widget build(BuildContext context) {
     final vehiculosPorId = {
@@ -300,6 +344,7 @@ class _CombustibleViewState extends State<CombustibleView> {
                     }
 
                     final rendimientoPorId = <String, double?>{};
+
                     for (var i = 0; i < todasLasCargas.length; i++) {
                       rendimientoPorId[todasLasCargas[i].uid] =
                           _viewModel.calcularRendimientoKmL(
@@ -366,8 +411,7 @@ class _CombustibleViewState extends State<CombustibleView> {
                                 vehiculo: vehiculosPorId[carga.vehiculoUid],
                                 rendimientoKmL: rendimientoPorId[carga.uid],
                                 fecha: _fechaFormateada(carga.fechaCarga),
-                                onEditar: () =>
-                                    _abrirFormulario(carga: carga),
+                                onEditar: () => _abrirFormulario(carga: carga),
                                 onEliminar: () =>
                                     _confirmarEliminacion(carga),
                               );
@@ -397,6 +441,9 @@ class _CombustibleViewState extends State<CombustibleView> {
     );
   }
 
+  // Construye el estado vacío, de carga o de error de una sección.
+  // Entradas: icono que se mostrará y mensaje que se presentará.
+  // Salida: un widget centrado con el icono y el mensaje.
   Widget _estadoVacio({
     required IconData icono,
     required String mensaje,
@@ -428,14 +475,30 @@ class _CombustibleViewState extends State<CombustibleView> {
   }
 }
 
+// Tarjeta que presenta los datos principales de una carga de combustible.
 class _TarjetaCarga extends StatelessWidget {
+  // Registro de combustible que se mostrará.
   final CombustibleModel carga;
+
+  // Vehículo asociado a la carga, si está disponible.
   final VehiculoModel? vehiculo;
+
+  // Rendimiento calculado para la carga, si está disponible.
   final double? rendimientoKmL;
+
+  // Fecha formateada para presentarla en la tarjeta.
   final String fecha;
+
+  // Acción que abre el formulario de edición.
   final VoidCallback onEditar;
+
+  // Acción que inicia la eliminación de la carga.
   final VoidCallback onEliminar;
 
+  // Crea una tarjeta con los datos y acciones de una carga.
+  // Entradas: carga, vehículo opcional, rendimiento, fecha y funciones de edición
+  // y eliminación.
+  // Salida: una instancia de _TarjetaCarga.
   const _TarjetaCarga({
     required this.carga,
     required this.vehiculo,
@@ -445,6 +508,9 @@ class _TarjetaCarga extends StatelessWidget {
     required this.onEliminar,
   });
 
+  // Construye la tarjeta con información y acciones de la carga.
+  // Entrada: context de la tarjeta actual.
+  // Salida: un widget con los datos del vehículo y del combustible.
   @override
   Widget build(BuildContext context) {
     final identificadorVehiculo = vehiculo == null
@@ -570,15 +636,25 @@ class _TarjetaCarga extends StatelessWidget {
   }
 }
 
+// Widget que presenta un dato de la carga junto con su icono.
 class _DatoCarga extends StatelessWidget {
+  // Icono que identifica el dato.
   final IconData icono;
+
+  // Texto del dato que se mostrará.
   final String texto;
 
+  // Crea un indicador para un dato de combustible.
+  // Entradas: icono y texto que se presentarán.
+  // Salida: una instancia de _DatoCarga.
   const _DatoCarga({
     required this.icono,
     required this.texto,
   });
 
+  // Construye el icono y el texto del dato.
+  // Entrada: context del widget actual.
+  // Salida: un widget en fila con el icono y el texto.
   @override
   Widget build(BuildContext context) {
     return Row(

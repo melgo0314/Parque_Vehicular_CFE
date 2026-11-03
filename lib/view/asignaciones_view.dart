@@ -1,39 +1,62 @@
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
 import '../models/asignacion_model.dart';
 import '../viewmodel/asignacion_viewmodel.dart';
 import 'form_asignacion_view.dart';
 
+// Pantalla que muestra y administra las asignaciones de vehículos.
 class AsignacionesView extends StatefulWidget {
+  // Crea la pantalla de asignaciones.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de AsignacionesView.
   const AsignacionesView({super.key});
 
+  // Crea el estado asociado a la pantalla.
+  // Entrada: ninguna.
+  // Salida: el estado que administra las asignaciones.
   @override
   State<AsignacionesView> createState() => _AsignacionesViewState();
 }
 
+// Estado y comportamiento de la pantalla de asignaciones.
 class _AsignacionesViewState extends State<AsignacionesView> {
+  // ViewModel que consulta y administra las asignaciones.
   final AsignacionViewModel _viewModel = AsignacionViewModel();
 
+  // Flujo de asignaciones que se muestra en la pantalla.
   late Stream<List<AsignacionModel>> _asignacionesStream;
+
+  // Identificador de la asignación que se está finalizando.
   String? _uidFinalizando;
 
+  // Inicializa la pantalla y prepara el flujo de asignaciones.
+  // Entrada: ninguna.
+  // Salida: ninguna; crea el flujo usado por la interfaz.
   @override
   void initState() {
     super.initState();
     _crearStream();
   }
 
+  // Obtiene del ViewModel el flujo de asignaciones.
+  // Entrada: ninguna.
+  // Salida: ninguna; guarda el flujo en _asignacionesStream.
   void _crearStream() {
     _asignacionesStream = _viewModel.obtenerAsignaciones();
   }
 
+  // Libera el ViewModel al cerrar la pantalla.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _viewModel.dispose();
     super.dispose();
   }
 
+  // Obtiene las iniciales de un nombre.
+  // Entrada: nombre completo de una persona.
+  // Salida: iniciales en mayúsculas o un signo de interrogación si no hay nombre.
   String _iniciales(String nombre) {
     final partes = nombre
         .trim()
@@ -47,6 +70,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return '${partes.first[0]}${partes.last[0]}'.toUpperCase();
   }
 
+  // Obtiene la abreviatura del mes indicado.
+  // Entrada: mes como número del 1 al 12.
+  // Salida: abreviatura del mes correspondiente.
   String _mesAbreviado(int mes) {
     const meses = [
       'ene',
@@ -66,14 +92,21 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return meses[mes - 1];
   }
 
+  // Da formato a una fecha para mostrarla en la interfaz.
+  // Entrada: fecha que se desea presentar.
+  // Salida: fecha con el formato día, mes abreviado y año.
   String _fechaCompleta(DateTime fecha) {
     final dia = fecha.day.toString().padLeft(2, '0');
     return '$dia ${_mesAbreviado(fecha.month)} ${fecha.year}';
   }
 
+  // Construye el texto de fechas y motivo según la asignación.
+  // Entrada: asignacion cuyos datos se mostrarán.
+  // Salida: texto con fecha de inicio, fecha de término y motivo si corresponde.
   String _textoFechas(AsignacionModel asignacion) {
     if (asignacion.estado == 'finalizada') {
       final fechaFin = asignacion.fechaFin;
+
       if (fechaFin == null) {
         return 'Desde ${_fechaCompleta(asignacion.fechaInicio)} · Finalizada';
       }
@@ -92,6 +125,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
       }
 
       String intervalo;
+
       if (asignacion.fechaInicio.month == fechaFin.month &&
           asignacion.fechaInicio.year == fechaFin.year) {
         intervalo =
@@ -109,12 +143,18 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return 'Desde ${_fechaCompleta(asignacion.fechaInicio)}';
   }
 
+  // Obtiene la etiqueta correspondiente al estado de una asignación.
+  // Entrada: asignacion cuyo estado se consultará.
+  // Salida: texto Finalizada, Temporal o Vigente.
   String _etiquetaEstado(AsignacionModel asignacion) {
     if (asignacion.estado == 'finalizada') return 'Finalizada';
     if (asignacion.esTemporal) return 'Temporal';
     return 'Vigente';
   }
 
+  // Obtiene el color de fondo para el estado de una asignación.
+  // Entrada: asignacion cuyo estado determina el color.
+  // Salida: color de fondo correspondiente al estado.
   Color _colorFondoEstado(AsignacionModel asignacion) {
     if (asignacion.estado == 'finalizada') {
       return AppTheme.roleSurface;
@@ -125,6 +165,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return AppTheme.operationalSurface;
   }
 
+  // Obtiene el color de texto para el estado de una asignación.
+  // Entrada: asignacion cuyo estado determina el color.
+  // Salida: color de texto correspondiente al estado.
   Color _colorTextoEstado(AsignacionModel asignacion) {
     if (asignacion.estado == 'finalizada') {
       return AppTheme.primaryText;
@@ -135,6 +178,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return AppTheme.operationalText;
   }
 
+  // Obtiene el icono correspondiente al estado de una asignación.
+  // Entrada: asignacion cuyo estado determina el icono.
+  // Salida: icono asociado al estado.
   IconData _iconoEstado(AsignacionModel asignacion) {
     if (asignacion.estado == 'finalizada') {
       return Icons.check_circle_outline;
@@ -145,6 +191,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     return Icons.check;
   }
 
+  // Abre el formulario para crear o editar una asignación.
+  // Entrada: asignacion opcional; si se proporciona, se editará.
+  // Salida: ninguna; muestra un mensaje al regresar si se guardó correctamente.
   Future<void> _abrirFormulario({AsignacionModel? asignacion}) async {
     final resultado = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -162,6 +211,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     }
   }
 
+  // Solicita confirmación y finaliza la asignación seleccionada.
+  // Entrada: asignacion que se desea finalizar.
+  // Salida: ninguna; muestra el resultado y actualiza el estado de carga.
   Future<void> _confirmarFinalizacion(AsignacionModel asignacion) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -220,6 +272,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     );
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se presentará y error para determinar su color.
+  // Salida: ninguna; muestra un SnackBar si la pantalla sigue activa.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     if (!mounted) return;
 
@@ -234,6 +289,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
       );
   }
 
+  // Construye la etiqueta visual del estado de una asignación.
+  // Entrada: asignacion cuyo estado se mostrará.
+  // Salida: un widget con icono y texto de estado.
   Widget _distintivoEstado(AsignacionModel asignacion) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -263,6 +321,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     );
   }
 
+  // Construye la tarjeta con los datos y acciones de una asignación.
+  // Entrada: asignacion que se presentará.
+  // Salida: una tarjeta con operador, vehículo, fechas, estado y acciones.
   Widget _tarjetaAsignacion(AsignacionModel asignacion) {
     final finalizando = _uidFinalizando == asignacion.uid;
 
@@ -397,6 +458,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     );
   }
 
+  // Construye el mensaje para cuando todavía no hay asignaciones.
+  // Entrada: ninguna.
+  // Salida: un widget con el aviso y una indicación para crear una asignación.
   Widget _estadoVacio() {
     return Center(
       child: Padding(
@@ -434,6 +498,9 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     );
   }
 
+  // Construye la interfaz y presenta el flujo de asignaciones.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla de asignaciones.
   @override
   Widget build(BuildContext context) {
     return Scaffold(

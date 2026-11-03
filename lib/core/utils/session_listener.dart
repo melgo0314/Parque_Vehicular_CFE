@@ -1,10 +1,9 @@
 import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../routes/app_routes.dart';
 
+// Widget contenedor que detecta la inactividad global
 class SessionTimeoutListener extends StatefulWidget {
   final Widget child;
 
@@ -18,6 +17,7 @@ class SessionTimeoutListener extends StatefulWidget {
       _SessionTimeoutListenerState();
 }
 
+// Controla el estado del temporizador
 class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     with WidgetsBindingObserver {
   static const Duration _tiempoInactividad = Duration(minutes: 5);
@@ -50,6 +50,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     );
   }
 
+  // Actualiza la marca de tiempo de interaccion
   void _registrarActividad() {
     if (FirebaseAuth.instance.currentUser == null || _cerrandoSesion) {
       return;
@@ -59,6 +60,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     _programarCierre(_tiempoInactividad);
   }
 
+  // Cancela el temporizador activo y programa una nueva verificacion
   void _programarCierre(Duration tiempoRestante) {
     _timer?.cancel();
 
@@ -69,11 +71,13 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     _timer = Timer(tiempoRestante, _comprobarTiempoInactivo);
   }
 
+  // Limpia el temporizador en memoria
   void _cancelarTemporizador() {
     _timer?.cancel();
     _timer = null;
   }
 
+  // Evalua si el tiempo desde el ultimo toque supero el limite
   Future<void> _comprobarTiempoInactivo() async {
     if (!mounted || _cerrandoSesion) return;
 
@@ -100,6 +104,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     await _cerrarSesionPorInactividad();
   }
 
+  // Destruye la sesión en Firebase y muestra un aviso en la UI
   Future<void> _cerrarSesionPorInactividad() async {
     if (!mounted ||
         _cerrandoSesion ||
@@ -146,6 +151,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     }
   }
 
+  // Retorna una cadena de texto 
   String _textoTiempoInactividad() {
     final minutos = _tiempoInactividad.inMinutes;
 
@@ -156,6 +162,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     return '$minutos minutos de inactividad';
   }
 
+  // Intercepta los cambios de estado del sistema
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -168,6 +175,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     }
   }
 
+  // Remueve listeners del ciclo de vida
   @override
   void dispose() {
     _cancelarTemporizador();
@@ -178,6 +186,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
 
   @override
   Widget build(BuildContext context) {
+    // Escucha los toques tactiles sobre la pantalla para reiniciar el tiempo
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => _registrarActividad(),

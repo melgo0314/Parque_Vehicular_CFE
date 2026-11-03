@@ -41,7 +41,6 @@ dependencies:
   firebase_storage: ^14.0.0
   image_picker: ^1.2.4
   cloud_functions: ^7.0.0
-  camera_windows: ^0.3.0 
   file_picker: ^13.3.0
 
 dev_dependencies:

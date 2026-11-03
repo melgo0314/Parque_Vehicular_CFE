@@ -8,45 +8,84 @@ import '../models/combustible_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/combustible_viewmodel.dart';
 
+// Proyecto: Sistema de gestión vehicular
+// Módulo: Formulario de combustible
+// Autor: [Escribe aquí tu nombre]
+// Descripción: Permite registrar y editar cargas de combustible.
+
+// Formulario para registrar o editar una carga de combustible.
 class FormCombustibleView extends StatefulWidget {
+  // Lista de vehículos disponibles para asociar con la carga.
   final List<VehiculoModel> vehiculos;
+
+  // Carga existente; null cuando se registra una carga nueva.
   final CombustibleModel? carga;
 
+  // Crea el formulario con los vehículos y la carga opcional.
+  // Entradas: key opcional, vehiculos requeridos y carga opcional para editar.
+  // Salida: una instancia de FormCombustibleView.
   const FormCombustibleView({
     super.key,
     required this.vehiculos,
     this.carga,
   });
 
+  // Crea el estado asociado a este formulario.
+  // Entrada: ninguna.
+  // Salida: el estado que administra el formulario.
   @override
   State<FormCombustibleView> createState() => _FormCombustibleViewState();
 }
 
+// Administra el formulario y las operaciones de combustible.
 class _FormCombustibleViewState extends State<FormCombustibleView> {
+  // Llave utilizada para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
+
+  // ViewModel que registra, actualiza y consulta las cargas.
   final _viewModel = CombustibleViewModel();
 
+  // Controlador para el campo de litros.
   final _litrosController = TextEditingController();
+
+  // Controlador para el campo del importe.
   final _importeController = TextEditingController();
+
+  // Controlador para el campo de kilometraje.
   final _kilometrajeController = TextEditingController();
+
+  // Controlador para el campo de observaciones.
   final _observacionesController = TextEditingController();
 
+  // Suscripción a las cargas anteriores del vehículo seleccionado.
   StreamSubscription<List<CombustibleModel>>? _suscripcionCargas;
 
+  // Identificador del vehículo seleccionado.
   String? _vehiculoUid;
   String? _tipoCombustible;
+
+  // Fecha de la carga.
   DateTime _fechaCarga = DateTime.now();
+
+  // Kilometraje de la carga anterior, si existe.
   int? _ultimoKilometraje;
+
+  // Indica si se está guardando el formulario.
   bool _guardando = false;
 
+  // Indica si el formulario está editando una carga existente.
   bool get _esEdicion => widget.carga != null;
 
+  // Tipos de combustible disponibles en el selector.
   static const List<String> _tiposCombustible = [
     'Magna',
     'Premium',
     'Diésel',
   ];
 
+  // Inicializa el formulario con los datos existentes o el vehículo único.
+  // Entrada: ninguna.
+  // Salida: ninguna; prepara los campos y escucha el kilometraje anterior.
   @override
   void initState() {
     super.initState();
@@ -68,6 +107,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     _escucharUltimoKilometraje();
   }
 
+  // Cancela la suscripción y libera los controladores y el ViewModel.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _suscripcionCargas?.cancel();
@@ -79,6 +121,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     super.dispose();
   }
 
+  // Escucha las cargas del vehículo y obtiene el kilometraje anterior más reciente.
+  // Entrada: ninguna; consulta el vehículo seleccionado actualmente.
+  // Salida: ninguna; actualiza _ultimoKilometraje con los datos recibidos.
   void _escucharUltimoKilometraje() {
     _suscripcionCargas?.cancel();
 
@@ -112,6 +157,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     );
   }
 
+  // Abre el selector para elegir la fecha de la carga.
+  // Entrada: ninguna.
+  // Salida: ninguna; actualiza _fechaCarga si se selecciona una fecha.
   Future<void> _seleccionarFecha() async {
     final fecha = await showDatePicker(
       context: context,
@@ -128,6 +176,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     }
   }
 
+  // Valida y guarda una carga nueva o actualiza una existente.
+  // Entrada: ninguna; utiliza los valores actuales del formulario.
+  // Salida: ninguna; cierra el formulario si se guarda o muestra un error.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
@@ -186,10 +237,16 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     );
   }
 
+  // Convierte texto con punto o coma decimal en un número.
+  // Entrada: valor de texto que se desea convertir.
+  // Salida: número decimal o null si el texto no es válido.
   double? _parsearDecimal(String valor) {
     return double.tryParse(valor.trim().replaceAll(',', '.'));
   }
 
+  // Valida que el campo contenga un número decimal mayor que cero.
+  // Entradas: valor escrito y campo, nombre utilizado en el mensaje.
+  // Salida: mensaje de error si el valor no es válido; de lo contrario, null.
   String? _validarDecimal(String? valor, String campo) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Ingresa $campo.';
@@ -203,6 +260,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     return null;
   }
 
+  // Da formato a una fecha para mostrarla en el formulario.
+  // Entrada: fecha que se desea presentar.
+  // Salida: fecha con día, mes abreviado y año.
   String _fechaFormateada(DateTime fecha) {
     const meses = [
       'ene',
@@ -223,6 +283,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se presentará y esError para determinar el color.
+  // Salida: ninguna; muestra un SnackBar en la pantalla.
   void _mostrarMensaje(String mensaje, {required bool esError}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -235,6 +298,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
       );
   }
 
+  // Construye una etiqueta de texto para los campos del formulario.
+  // Entrada: texto que se mostrará.
+  // Salida: widget de texto con el estilo definido.
   Widget _etiqueta(String texto) {
     return Text(
       texto,
@@ -246,6 +312,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     );
   }
 
+  // Construye la pantalla que se muestra cuando no hay vehículos.
+  // Entrada: ninguna.
+  // Salida: widget informativo con una acción para volver.
   Widget _vistaSinVehiculos() {
     return Center(
       child: Padding(
@@ -278,6 +347,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     );
   }
 
+  // Construye los campos y las acciones del formulario.
+  // Entrada: lista de vehículos que aparecerán en el selector.
+  // Salida: widget Form con los datos de la carga.
   Widget _contenidoFormulario(List<VehiculoModel> vehiculos) {
     return Form(
       key: _formKey,
@@ -514,6 +586,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     );
   }
 
+  // Construye la pantalla del formulario o el aviso de que no hay vehículos.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets para registrar o editar una carga.
   @override
   Widget build(BuildContext context) {
     final vehiculos = widget.vehiculos

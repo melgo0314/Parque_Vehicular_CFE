@@ -1,3 +1,8 @@
+// Proyecto: Sistema de gestión vehicular
+// Módulo: Formulario de asignaciones
+// Autor: [Escribe aquí tu nombre]
+// Descripción: Permite crear y editar asignaciones de vehículos a operadores.
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
@@ -6,23 +11,38 @@ import '../models/user_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/asignacion_viewmodel.dart';
 
+// Formulario para crear o editar una asignación.
 class FormAsignacionView extends StatefulWidget {
+  // Asignación que se editará; es null cuando se crea una nueva.
   final AsignacionModel? asignacion;
 
+  // Crea el formulario y recibe opcionalmente una asignación existente.
+  // Entradas: key opcional y asignacion opcional para el modo de edición.
+  // Salida: una instancia de FormAsignacionView.
   const FormAsignacionView({
     super.key,
     this.asignacion,
   });
 
+  // Crea el estado asociado al formulario.
+  // Entrada: ninguna.
+  // Salida: el estado que administra el formulario.
   @override
   State<FormAsignacionView> createState() => _FormAsignacionViewState();
 }
 
+// Estado y comportamiento del formulario de asignación.
 class _FormAsignacionViewState extends State<FormAsignacionView> {
+  // Llave para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
+
+  // ViewModel que consulta y administra las asignaciones.
   final _viewModel = AsignacionViewModel();
+
+  // Controlador para el motivo personalizado de una asignación temporal.
   final _otroMotivoController = TextEditingController();
 
+  // Opciones disponibles para el motivo de una asignación temporal.
   static const List<String> _motivos = [
     'Vacaciones del titular',
     'Incapacidad del titular',
@@ -31,20 +51,42 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     'Otro',
   ];
 
+  // Consulta asíncrona de operadores disponibles.
   late Future<List<UserModel>> _operadoresFuture;
+
+  // Consulta asíncrona de vehículos disponibles.
   late Future<List<VehiculoModel>> _vehiculosFuture;
 
+  // Identificador del operador seleccionado.
   String? _operadorUid;
+
+  // Identificador del vehículo seleccionado.
   String? _vehiculoUid;
+
+  // Tipo de asignación seleccionado.
   String _tipo = 'permanente';
+
+  // Motivo seleccionado para una asignación temporal.
   String? _motivoSeleccionado;
+
+  // Fecha de inicio de la asignación.
   DateTime _fechaInicio = DateTime.now();
+
+  // Fecha de término de la asignación, si aplica.
   DateTime? _fechaFin;
+
+  // Indica si se está guardando la asignación.
   bool _guardando = false;
 
+  // Indica si el formulario está editando una asignación existente.
   bool get _esEdicion => widget.asignacion != null;
+
+  // Indica si el tipo seleccionado es temporal.
   bool get _esTemporal => _tipo == 'temporal';
 
+  // Obtiene el motivo que se guardará para la asignación.
+  // Entrada: ninguna; consulta el motivo seleccionado y el campo personalizado.
+  // Salida: motivo escrito o seleccionado, o una cadena vacía.
   String get _motivoGuardado {
     if (_motivoSeleccionado == 'Otro') {
       return _otroMotivoController.text.trim();
@@ -53,6 +95,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     return _motivoSeleccionado ?? '';
   }
 
+  // Inicializa el formulario con los datos existentes y carga las listas.
+  // Entrada: ninguna.
+  // Salida: ninguna; prepara los campos para crear o editar.
   @override
   void initState() {
     super.initState();
@@ -77,6 +122,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     _cargarListas();
   }
 
+  // Consulta los operadores y vehículos disponibles para la asignación.
+  // Entrada: ninguna; excluye la asignación actual si se está editando.
+  // Salida: ninguna; actualiza los Futures usados por los selectores.
   void _cargarListas() {
     final uidExcluir = widget.asignacion?.uid;
 
@@ -88,6 +136,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Libera el controlador y el ViewModel al cerrar el formulario.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _otroMotivoController.dispose();
@@ -95,6 +146,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     super.dispose();
   }
 
+  // Da formato a una fecha para mostrarla en el formulario.
+  // Entrada: fecha que se desea presentar.
+  // Salida: texto con día, mes y año.
   String _formatearFecha(DateTime fecha) {
     final dia = fecha.day.toString().padLeft(2, '0');
     final mes = fecha.month.toString().padLeft(2, '0');
@@ -102,6 +156,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     return '$dia $mes ${fecha.year}';
   }
 
+  // Abre el selector para elegir la fecha de inicio.
+  // Entrada: ninguna.
+  // Salida: ninguna; actualiza la fecha si el usuario selecciona una.
   Future<void> _seleccionarFechaInicio() async {
     final hoy = DateTime.now();
 
@@ -126,6 +183,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     });
   }
 
+  // Abre el selector para elegir la fecha de término.
+  // Entrada: ninguna; utiliza la fecha de inicio como límite mínimo.
+  // Salida: ninguna; actualiza la fecha si el usuario selecciona una.
   Future<void> _seleccionarFechaFin() async {
     final fecha = await showDatePicker(
       context: context,
@@ -142,6 +202,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     }
   }
 
+  // Cambia el tipo de asignación y limpia datos temporales si es permanente.
+  // Entrada: tipo nuevo, permanente o temporal.
+  // Salida: ninguna; actualiza el estado del formulario.
   void _cambiarTipo(String tipo) {
     setState(() {
       _tipo = tipo;
@@ -154,6 +217,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     });
   }
 
+  // Valida y guarda la asignación nueva o actualizada.
+  // Entrada: ninguna; toma los datos de los campos del formulario.
+  // Salida: ninguna; muestra errores o cierra el formulario si se guarda.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
@@ -225,6 +291,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     Navigator.of(context).pop(true);
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se mostrará y error para determinar el color.
+  // Salida: ninguna; muestra un SnackBar si el widget sigue activo.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     if (!mounted) return;
 
@@ -239,6 +308,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
       );
   }
 
+  // Construye un aviso que explica el comportamiento de una asignación temporal.
+  // Entrada: ninguna.
+  // Salida: un widget informativo para el formulario.
   Widget _avisoTemporal() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -285,6 +357,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye el indicador que se muestra mientras carga una lista.
+  // Entrada: etiqueta del selector que está cargando.
+  // Salida: un widget con indicador de progreso y etiqueta.
   Widget _cargandoLista(String etiqueta) {
     return InputDecorator(
       decoration: InputDecoration(
@@ -295,6 +370,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye un mensaje de error para una lista y ofrece volver a cargarla.
+  // Entradas: etiqueta del selector y función reintentar.
+  // Salida: un widget con el error y el botón para reintentar.
   Widget _errorLista({
     required String etiqueta,
     required VoidCallback reintentar,
@@ -329,6 +407,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye el selector de operadores disponibles.
+  // Entrada: ninguna; utiliza el Future de operadores y el operador seleccionado.
+  // Salida: selector, indicador de carga, error o mensaje sin resultados.
   Widget _selectorOperador() {
     return FutureBuilder<List<UserModel>>(
       future: _operadoresFuture,
@@ -397,6 +478,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye el selector de vehículos disponibles.
+  // Entrada: ninguna; utiliza el Future de vehículos y el vehículo seleccionado.
+  // Salida: selector, indicador de carga, error o mensaje sin resultados.
   Widget _selectorVehiculo() {
     return FutureBuilder<List<VehiculoModel>>(
       future: _vehiculosFuture,
@@ -448,7 +532,8 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
             return DropdownMenuItem<String>(
               value: vehiculo.uid,
               child: Text(
-                '${descripcion.isEmpty ? 'Vehículo' : descripcion} · ${vehiculo.placas}',
+                '${descripcion.isEmpty ? 'Vehículo' : descripcion} · '
+                '${vehiculo.placas}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -468,6 +553,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye el selector entre asignación permanente y temporal.
+  // Entrada: ninguna; utiliza el tipo seleccionado y el estado de carga.
+  // Salida: un control segmentado para elegir el tipo de asignación.
   Widget _selectorTipo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,6 +613,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye un campo táctil para seleccionar una fecha.
+  // Entradas: etiqueta del campo, fecha actual y función alTocar.
+  // Salida: un widget que muestra la fecha y abre el selector al tocarlo.
   Widget _campoFecha({
     required String etiqueta,
     required DateTime? fecha,
@@ -583,6 +674,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye los campos de fecha según el tipo de asignación.
+  // Entrada: ninguna; consulta si la asignación es permanente o temporal.
+  // Salida: un campo de inicio o los campos de inicio y término.
   Widget _fechas() {
     if (!_esTemporal) {
       return _campoFecha(
@@ -635,6 +729,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye el selector del motivo para una asignación temporal.
+  // Entrada: ninguna; utiliza la lista de motivos y el valor seleccionado.
+  // Salida: selector de motivo y campo de texto si se eligió Otro.
   Widget _selectorMotivo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,6 +791,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye todos los campos y botones del formulario.
+  // Entrada: ninguna; consulta los datos actuales y el estado del formulario.
+  // Salida: un widget Form con selectores, fechas, motivo y acciones.
   Widget _contenidoFormulario() {
     return Form(
       key: _formKey,
@@ -766,6 +866,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     );
   }
 
+  // Construye la pantalla y muestra el formulario centrado.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de creación o edición de asignaciones.
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -1,23 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:p_vehicular/viewmodel/vehiculos_viewmodel.dart';
 import 'package:p_vehicular/core/theme/app_theme.dart';
 import 'package:p_vehicular/models/vehiculos_model.dart';
+import 'package:p_vehicular/viewmodel/vehiculos_viewmodel.dart';
 import 'form_vehiculo_view.dart';
 
+// Pantalla para consultar y administrar vehículos.
 class VehiculosView extends StatefulWidget {
+  // Crea la pantalla de vehículos.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de VehiculosView.
   const VehiculosView({super.key});
 
+  // Crea el estado asociado a la pantalla.
+  // Entrada: ninguna.
+  // Salida: el estado que administra la búsqueda y los filtros.
   @override
   State<VehiculosView> createState() => _VehiculosViewState();
 }
 
+// Estado y comportamiento de la pantalla de vehículos.
 class _VehiculosViewState extends State<VehiculosView> {
+  // ViewModel que consulta y administra vehículos.
   final VehiculosViewModel _viewModel = VehiculosViewModel();
+
+  // Controlador del campo de búsqueda.
   final TextEditingController _busquedaController = TextEditingController();
 
+  // Texto escrito en el campo de búsqueda.
   String _busqueda = '';
+
+  // Filtro seleccionado para el estado de los vehículos.
   String _filtro = 'todos';
 
+  // Libera el controlador y el ViewModel al cerrar la pantalla.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _busquedaController.dispose();
@@ -25,6 +42,9 @@ class _VehiculosViewState extends State<VehiculosView> {
     super.dispose();
   }
 
+  // Abre el formulario para crear o editar un vehículo.
+  // Entrada: vehiculo opcional; si se proporciona, se editará.
+  // Salida: ninguna; abre el formulario correspondiente.
   Future<void> _abrirFormulario({VehiculoModel? vehiculo}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -33,15 +53,24 @@ class _VehiculosViewState extends State<VehiculosView> {
     );
   }
 
+  // Construye el nombre descriptivo del vehículo.
+  // Entrada: vehiculo cuyos datos se combinarán.
+  // Salida: marca, modelo y año en un solo texto.
   String _nombreVehiculo(VehiculoModel vehiculo) {
     return '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
   }
 
+  // Obtiene el estado que se usará para determinar los colores del vehículo.
+  // Entrada: vehiculo cuyo estado se consultará.
+  // Salida: baja si está dado de baja; de lo contrario, su estado operativo.
   String _estadoColor(VehiculoModel vehiculo) {
     if (vehiculo.estado.toLowerCase() == 'baja') return 'baja';
     return vehiculo.estadoOperativo.toLowerCase();
   }
 
+  // Obtiene la etiqueta legible del estado del vehículo.
+  // Entrada: vehiculo cuyo estado se mostrará.
+  // Salida: texto descriptivo del estado administrativo u operativo.
   String _nombreEstado(VehiculoModel vehiculo) {
     if (vehiculo.estado.toLowerCase() == 'baja') return 'De baja';
 
@@ -58,6 +87,9 @@ class _VehiculosViewState extends State<VehiculosView> {
     }
   }
 
+  // Obtiene el icono correspondiente al estado del vehículo.
+  // Entrada: vehiculo cuyo estado determina el icono.
+  // Salida: icono asociado al estado.
   IconData _iconoEstado(VehiculoModel vehiculo) {
     if (vehiculo.estado.toLowerCase() == 'baja') {
       return Icons.remove_circle_outline;
@@ -76,6 +108,9 @@ class _VehiculosViewState extends State<VehiculosView> {
     }
   }
 
+  // Da formato al kilometraje agregando separadores de miles.
+  // Entrada: kilometraje que se mostrará.
+  // Salida: kilometraje con comas para separar los millares.
   String _formatearKilometraje(int kilometraje) {
     return kilometraje.toString().replaceAllMapped(
           RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -83,6 +118,9 @@ class _VehiculosViewState extends State<VehiculosView> {
         );
   }
 
+  // Comprueba si un vehículo cumple el filtro de estado seleccionado.
+  // Entrada: vehiculo que se evaluará.
+  // Salida: true si coincide con el filtro; de lo contrario, false.
   bool _coincideFiltro(VehiculoModel vehiculo) {
     final estadoAdministrativo = vehiculo.estado.toLowerCase();
     final estadoOperativo = vehiculo.estadoOperativo.toLowerCase();
@@ -106,6 +144,9 @@ class _VehiculosViewState extends State<VehiculosView> {
     }
   }
 
+  // Construye un chip para seleccionar un filtro.
+  // Entradas: valor interno del filtro y etiqueta que verá el usuario.
+  // Salida: un ChoiceChip que actualiza el filtro seleccionado.
   Widget _chipFiltro(String valor, String etiqueta) {
     final seleccionado = _filtro == valor;
 
@@ -130,6 +171,9 @@ class _VehiculosViewState extends State<VehiculosView> {
     );
   }
 
+  // Construye una tarjeta con los datos principales del vehículo.
+  // Entrada: vehiculo que se mostrará.
+  // Salida: una tarjeta con sus datos, estado y acción para abrir el formulario.
   Widget _tarjetaVehiculo(VehiculoModel vehiculo) {
     final estadoColor = _estadoColor(vehiculo);
 
@@ -213,8 +257,7 @@ class _VehiculosViewState extends State<VehiculosView> {
                               Text(
                                 _nombreEstado(vehiculo),
                                 style: TextStyle(
-                                  color:
-                                      AppTheme.vehicleStatusText(estadoColor),
+                                  color: AppTheme.vehicleStatusText(estadoColor),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -263,6 +306,9 @@ class _VehiculosViewState extends State<VehiculosView> {
     );
   }
 
+  // Construye la pantalla con búsqueda, filtros y lista de vehículos.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla de vehículos.
   @override
   Widget build(BuildContext context) {
     final incluirBaja = _filtro == 'baja';

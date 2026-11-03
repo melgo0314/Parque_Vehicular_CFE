@@ -1,35 +1,54 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
 import '../models/kilometraje_model.dart';
 import '../models/vehiculos_model.dart';
 import '../view/form_kilometraje_view.dart';
 import '../viewmodel/kilometraje_viewmodel.dart';
 
+// Pantalla que muestra y administra registros de kilometraje.
 class KilometrajeView extends StatefulWidget {
+  // Lista inicial de vehículos recibida desde la pantalla anterior.
   final List<VehiculoModel> vehiculos;
 
+  // Crea la pantalla de kilometraje.
+  // Entradas: key opcional y lista inicial de vehículos.
+  // Salida: una instancia de KilometrajeView.
   const KilometrajeView({
     super.key,
     required this.vehiculos,
   });
 
+  // Crea el estado asociado a la pantalla.
+  // Entrada: ninguna.
+  // Salida: el estado que administra vehículos y registros.
   @override
   State<KilometrajeView> createState() => _KilometrajeViewState();
 }
 
+// Estado y comportamiento de la pantalla de kilometraje.
 class _KilometrajeViewState extends State<KilometrajeView> {
+  // ViewModel que consulta y administra los registros.
   final _viewModel = KilometrajeViewModel();
 
+  // Lista actual de vehículos disponibles.
   late List<VehiculoModel> _vehiculos;
+
+  // Suscripción a los cambios en la lista de vehículos.
   StreamSubscription<List<VehiculoModel>>? _suscripcionVehiculos;
 
+  // Identificador del vehículo seleccionado.
   String? _vehiculoUid;
+
+  // Mensaje de error al cargar vehículos, si ocurre.
   String? _errorVehiculos;
+
+  // Indica si se están cargando los vehículos.
   bool _cargandoVehiculos = false;
 
+  // Inicializa la pantalla con los vehículos recibidos o los consulta.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece la lista y el vehículo seleccionado.
   @override
   void initState() {
     super.initState();
@@ -43,6 +62,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     }
   }
 
+  // Carga los vehículos y escucha los cambios de la fuente de datos.
+  // Entrada: ninguna.
+  // Salida: ninguna; actualiza el estado de carga, la lista o el error.
   void _cargarVehiculos() {
     _cargandoVehiculos = true;
 
@@ -73,6 +95,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     );
   }
 
+  // Cancela la suscripción y libera el ViewModel al cerrar la pantalla.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _suscripcionVehiculos?.cancel();
@@ -80,6 +105,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     super.dispose();
   }
 
+  // Abre el formulario para registrar un nuevo kilometraje.
+  // Entrada: ninguna; utiliza la lista actual y el vehículo seleccionado.
+  // Salida: ninguna; abre el formulario o muestra un mensaje si no hay vehículos.
   Future<void> _abrirFormulario() async {
     if (_cargandoVehiculos) {
       _mostrarMensaje('Espera mientras se cargan los vehículos.');
@@ -121,6 +149,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     _mostrarMensaje('El registro de kilometraje se guardó correctamente.');
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: texto que se presentará y esError para determinar el color.
+  // Salida: ninguna; muestra un SnackBar en la pantalla actual.
   void _mostrarMensaje(String texto, {bool esError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -133,6 +164,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
       );
   }
 
+  // Da formato a una fecha para mostrarla en el historial.
+  // Entrada: fecha que se desea presentar.
+  // Salida: fecha con el formato día, mes abreviado y año.
   String _formatearFecha(DateTime fecha) {
     const meses = [
       'ene',
@@ -153,6 +187,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
+  // Da formato al kilometraje agregando separadores de miles.
+  // Entrada: kilometraje que se desea mostrar.
+  // Salida: kilometraje con comas para separar los millares.
   String _formatearKilometraje(int kilometraje) {
     return kilometraje.toString().replaceAllMapped(
           RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -160,6 +197,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         );
   }
 
+  // Construye la pantalla con selector de vehículo y su historial.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets del módulo de kilometraje.
   @override
   Widget build(BuildContext context) {
     final vehiculosDisponibles = _vehiculos
@@ -251,8 +291,8 @@ class _KilometrajeViewState extends State<KilometrajeView> {
                         },
                       ),
       ),
-      // El botón permanece visible. Si aún no hay vehículos,
-      // _abrirFormulario muestra un mensaje explicando el problema.
+      // El botón permanece visible; si no hay vehículos, el formulario
+      // muestra un mensaje que explica el problema.
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirFormulario,
         backgroundColor: AppTheme.accentYellow,
@@ -266,6 +306,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     );
   }
 
+  // Construye un estado vacío o de error con icono y mensaje.
+  // Entradas: icono que se mostrará y mensaje que se presentará.
+  // Salida: un widget centrado con el icono y el mensaje.
   Widget _estadoVacio({
     required IconData icono,
     required String mensaje,
@@ -293,6 +336,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     );
   }
 
+  // Construye el selector de vehículo.
+  // Entrada: lista de vehículos disponibles.
+  // Salida: un campo desplegable que actualiza el vehículo seleccionado.
   Widget _selectorVehiculo(List<VehiculoModel> vehiculos) {
     final valorSeleccionado = vehiculos.any(
       (vehiculo) => vehiculo.uid == _vehiculoUid,
@@ -327,6 +373,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     );
   }
 
+  // Construye el resumen del kilometraje actual y su variación.
+  // Entradas: vehiculo seleccionado y lista de registros de kilometraje.
+  // Salida: tarjeta con el kilometraje actual y la variación del periodo.
   Widget _resumenKilometraje(
     VehiculoModel vehiculo,
     List<KilometrajeModel> registros,
@@ -397,6 +446,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     );
   }
 
+  // Construye una tarjeta con los datos de un registro de kilometraje.
+  // Entrada: registro que se mostrará.
+  // Salida: tarjeta con fecha, lectura final, variación y observaciones.
   Widget _tarjetaRegistro(KilometrajeModel registro) {
     final variacion = registro.kilometrajeFinal - registro.kilometrajeIni;
 
@@ -469,6 +521,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     );
   }
 
+  // Construye el mensaje que se muestra cuando no hay registros.
+  // Entrada: vehiculo consultado.
+  // Salida: un widget informativo con el número económico del vehículo.
   Widget _vistaSinRegistros(VehiculoModel vehiculo) {
     return Container(
       padding: const EdgeInsets.all(20),

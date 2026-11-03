@@ -1,43 +1,77 @@
 import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../viewmodel/usuarios_viewmodel.dart';
 
+// Formulario para crear o editar un usuario.
 class FormUsuarioView extends StatefulWidget {
+  // Usuario que se editará; es null cuando se registra uno nuevo.
   final UserModel? usuario;
 
+  // Crea el formulario y recibe opcionalmente un usuario existente.
+  // Entradas: key opcional y usuario opcional para el modo de edición.
+  // Salida: una instancia de FormUsuarioView.
   const FormUsuarioView({
     super.key,
     this.usuario,
   });
 
+  // Crea el estado asociado al formulario.
+  // Entrada: ninguna.
+  // Salida: el estado que administra los campos y las operaciones.
   @override
   State<FormUsuarioView> createState() => _FormUsuarioViewState();
 }
 
+// Estado y comportamiento del formulario de usuarios.
 class _FormUsuarioViewState extends State<FormUsuarioView> {
+  // Llave utilizada para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
+
+  // ViewModel que registra, actualiza y elimina usuarios.
   final _viewModel = UsuariosViewModel();
 
+  // Controlador para el nombre completo.
   final _nombreController = TextEditingController();
+
+  // Controlador para el correo electrónico.
   final _correoController = TextEditingController();
+
+  // Controlador para la contraseña.
   final _contrasenaController = TextEditingController();
+
+  // Controlador para el RPE.
   final _rpeController = TextEditingController();
+
+  // Controlador para el teléfono.
   final _telefonoController = TextEditingController();
 
+  // Rol seleccionado para el usuario.
   String _rol = 'operador';
+
+  // Archivo de licencia seleccionado.
   PlatformFile? _archivoLicencia;
+
+  // Contenido del archivo de licencia seleccionado.
   Uint8List? _bytesLicencia;
+
+  // Indica si la contraseña se muestra en el campo.
   bool _mostrarContrasena = false;
+
+  // Indica si se están guardando los datos.
   bool _guardando = false;
+
+  // Indica si se está eliminando el usuario.
   bool _eliminando = false;
 
+  // Indica si el formulario está editando un usuario existente.
   bool get _esEdicion => widget.usuario != null;
 
+  // Inicializa el formulario con los datos del usuario existente.
+  // Entrada: ninguna; consulta el usuario recibido por el widget.
+  // Salida: ninguna; llena los campos con sus datos.
   @override
   void initState() {
     super.initState();
@@ -53,6 +87,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     }
   }
 
+  // Libera los controladores y el ViewModel al cerrar el formulario.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _nombreController.dispose();
@@ -64,6 +101,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     super.dispose();
   }
 
+  // Separa un nombre completo en nombre y apellidos.
+  // Entrada: nombreCompleto escrito por el usuario.
+  // Salida: lista con nombre, primer apellido y segundo apellido.
   List<String> _separarNombre(String nombreCompleto) {
     final partes = nombreCompleto
         .trim()
@@ -85,6 +125,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return ['', '', ''];
   }
 
+  // Valida que un campo obligatorio tenga contenido.
+  // Entradas: valor del campo y campo, nombre que se incluirá en el mensaje.
+  // Salida: mensaje de error si el campo está vacío; de lo contrario, null.
   String? _validarObligatorio(String? valor, String campo) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe $campo.';
@@ -93,6 +136,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return null;
   }
 
+  // Valida que el correo tenga un formato aceptable.
+  // Entrada: valor escrito en el campo de correo.
+  // Salida: mensaje de error si el correo no es válido; de lo contrario, null.
   String? _validarCorreo(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe el correo electrónico.';
@@ -108,6 +154,10 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return null;
   }
 
+  // Valida la contraseña según se registre o edite un usuario.
+  // Entrada: valor escrito en el campo de contraseña.
+  // Salida: mensaje de error si falta o no alcanza la longitud requerida;
+  // devuelve null si es válida o si se dejó vacía durante una edición.
   String? _validarContrasena(String? valor) {
     if (_esEdicion && (valor == null || valor.isEmpty)) {
       return null;
@@ -124,6 +174,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return null;
   }
 
+  // Abre el selector de archivos y carga una licencia PDF o de imagen.
+  // Entrada: ninguna.
+  // Salida: ninguna; guarda el archivo y sus bytes, o muestra un mensaje de error.
   Future<void> _seleccionarLicencia() async {
     try {
       final archivo = await FilePicker.pickFile(
@@ -158,6 +211,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     }
   }
 
+  // Quita la licencia seleccionada y limpia sus datos de memoria.
+  // Entrada: ninguna.
+  // Salida: ninguna; limpia el archivo y sus bytes seleccionados.
   void _quitarLicencia() {
     setState(() {
       _archivoLicencia = null;
@@ -165,6 +221,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     });
   }
 
+  // Valida y guarda los datos del usuario.
+  // Entrada: ninguna; utiliza los valores de los campos del formulario.
+  // Salida: ninguna; muestra errores o cierra el formulario si se guarda.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
@@ -245,6 +304,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     Navigator.of(context).pop(true);
   }
 
+  // Solicita confirmación antes de eliminar el usuario actual.
+  // Entrada: ninguna; utiliza el usuario asociado al formulario.
+  // Salida: ninguna; elimina el usuario si se confirma y muestra el resultado.
   Future<void> _confirmarEliminacion() async {
     final usuario = widget.usuario;
 
@@ -306,6 +368,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     Navigator.of(context).pop(true);
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se mostrará y error para determinar el color.
+  // Salida: ninguna; presenta un SnackBar si la pantalla sigue activa.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     if (!mounted) return;
 
@@ -320,6 +385,10 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
       );
   }
 
+  // Construye un campo de texto reutilizable para el formulario.
+  // Entradas: controller, etiqueta, icono y opciones para teclado, ayuda,
+  // validación, ocultación de texto y sufijo.
+  // Salida: un TextFormField configurado con los valores recibidos.
   Widget _campo({
     required TextEditingController controller,
     required String etiqueta,
@@ -355,6 +424,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     );
   }
 
+  // Construye la vista previa del documento de licencia seleccionado.
+  // Entrada: ninguna; consulta el archivo y sus bytes actuales.
+  // Salida: vista previa PDF, imagen o widget vacío si no hay archivo.
   Widget _vistaDocumentoSeleccionado() {
     final archivo = _archivoLicencia;
     final bytes = _bytesLicencia;
@@ -433,6 +505,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     );
   }
 
+  // Construye la interfaz de registro o edición de usuario.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets con los campos y acciones disponibles.
   @override
   Widget build(BuildContext context) {
     final titulo = _esEdicion ? 'Editar usuario' : 'Nuevo usuario';
@@ -611,7 +686,8 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                                 color: AppTheme.cfeGreen,
                               ),
                             ),
-                            onPressed: _guardando ? null : _seleccionarLicencia,
+                            onPressed:
+                                _guardando ? null : _seleccionarLicencia,
                             icon: const Icon(Icons.file_upload_outlined),
                             label: Text(
                               _archivoLicencia == null

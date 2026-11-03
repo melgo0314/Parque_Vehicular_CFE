@@ -1,28 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/routes/app_routes.dart';
+import 'package:p_vehicular/core/theme/app_theme.dart';
+import 'package:p_vehicular/viewmodel/auth_viewmodel.dart';
 
-import '../core/routes/app_routes.dart';
-import '../core/theme/app_theme.dart';
-import '../viewmodel/auth_viewmodel.dart';
-
+// Pantalla de inicio de sesión con estado propio.
 class LoginView extends StatefulWidget {
+  // Crea la pantalla de inicio de sesión.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de LoginView.
   const LoginView({super.key});
 
+  // Crea el estado que administra la pantalla de inicio de sesión.
+  // Entrada: ninguna.
+  // Salida: el estado asociado a este widget.
   @override
   State<LoginView> createState() => _LoginViewState();
 }
 
+// Estado y comportamiento de la pantalla de inicio de sesión.
 class _LoginViewState extends State<LoginView> {
+  // Llave global utilizada para validar el formulario.
   final _formKey = GlobalKey<FormState>();
+
+  // Controlador para leer el correo escrito por el usuario.
   final _emailController = TextEditingController();
+
+  // Controlador para leer la contraseña escrita por el usuario.
   final _passwordController = TextEditingController();
+
+  // ViewModel que realiza las operaciones de autenticación.
   final _viewModel = AuthViewModel();
 
+  // Indica si la contraseña debe ocultarse en el campo de texto.
   bool _ocultarContrasena = true;
 
+  // Expresión regular básica para validar el formato del correo.
   final RegExp _emailRegExp = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
   );
 
+  // Libera los controladores y el ViewModel al cerrar esta pantalla.
+  // Entrada: ninguna.
+  // Salida: ninguna; libera los recursos asociados al estado.
   @override
   void dispose() {
     _emailController.dispose();
@@ -31,6 +50,9 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
+  // Valida las credenciales, inicia sesión y redirige según el rol.
+  // Entrada: ninguna; obtiene el correo y la contraseña de los controladores.
+  // Salida: ninguna; navega a la pantalla correspondiente o muestra un error.
   Future<void> _iniciarSesion() async {
     FocusScope.of(context).unfocus();
 
@@ -45,13 +67,13 @@ class _LoginViewState extends State<LoginView> {
 
     String? ruta;
 
-    if (rol == 'administrador' || rol == 'superusuario') {
+    if (rol == 'superusuario') {
+      ruta = AppRoutes.superHome;
+    } else if (rol == 'administrador') {
       ruta = AppRoutes.adminHome;
     } else if (rol == 'operador') {
       ruta = AppRoutes.operatorHome;
-    }
-
-    if (ruta == null) {
+    } else {
       _mostrarMensaje(
         'No se pudo iniciar sesión. Verifica tus datos y el rol asignado.',
         esError: true,
@@ -62,6 +84,9 @@ class _LoginViewState extends State<LoginView> {
     Navigator.pushReplacementNamed(context, ruta);
   }
 
+  // Valida el correo y solicita el envío del enlace para restablecer la contraseña.
+  // Entrada: ninguna; utiliza el correo escrito en el campo correspondiente.
+  // Salida: ninguna; muestra el resultado del envío mediante un mensaje.
   Future<void> _recuperarContrasena() async {
     final email = _emailController.text.trim();
 
@@ -95,6 +120,10 @@ class _LoginViewState extends State<LoginView> {
     }
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje es el texto que se mostrará; esError indica si el
+  // mensaje debe usar el color de error.
+  // Salida: ninguna; presenta un SnackBar en la pantalla actual.
   void _mostrarMensaje(String mensaje, {bool esError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -106,6 +135,9 @@ class _LoginViewState extends State<LoginView> {
       );
   }
 
+  // Construye la interfaz adaptable de inicio de sesión.
+  // Entrada: context, que proporciona el contexto actual del widget.
+  // Salida: el árbol de widgets que representa la pantalla.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,11 +191,10 @@ class _LoginViewState extends State<LoginView> {
                                     .textTheme
                                     .bodyMedium
                                     ?.copyWith(
-                                      color: AppTheme.secondaryText,
-                                    ),
+                                  color: AppTheme.secondaryText,
+                                ),
                               ),
                               const SizedBox(height: 32),
-
                               TextFormField(
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
@@ -190,7 +221,6 @@ class _LoginViewState extends State<LoginView> {
                                 },
                               ),
                               const SizedBox(height: 16),
-
                               TextFormField(
                                 controller: _passwordController,
                                 obscureText: _ocultarContrasena,
@@ -231,7 +261,6 @@ class _LoginViewState extends State<LoginView> {
                                   return null;
                                 },
                               ),
-
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
@@ -244,7 +273,6 @@ class _LoginViewState extends State<LoginView> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-
                               ListenableBuilder(
                                 listenable: _viewModel,
                                 builder: (context, child) {

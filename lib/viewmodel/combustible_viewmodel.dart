@@ -1,37 +1,66 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
 import '../models/combustible_model.dart';
 import '../models/vehiculos_model.dart';
 import '../repositories/combustible_repositorie.dart';
 import '../repositories/vehiculo_repositorie.dart';
 
+// Coordina las operaciones de combustible entre la interfaz y los repositorios.
 class CombustibleViewModel extends ChangeNotifier {
+  // Repositorio que consulta y administra cargas de combustible.
   final CombustibleRepositorie _repositorio;
+
+  // Repositorio que consulta vehículos.
   final VehiculoRepositorie _vehiculoRepositorio;
 
+  // Crea el ViewModel con los repositorios proporcionados o los predeterminados.
+  // Entradas: repositorio y vehiculoRepositorio son dependencias opcionales.
+  // Salida: una instancia de CombustibleViewModel configurada.
   CombustibleViewModel({
     CombustibleRepositorie? repositorio,
     VehiculoRepositorie? vehiculoRepositorio,
-  }) : _repositorio = repositorio ?? CombustibleRepositorie(),
-       _vehiculoRepositorio = vehiculoRepositorio ?? VehiculoRepositorie();
+  })  : _repositorio = repositorio ?? CombustibleRepositorie(),
+        _vehiculoRepositorio =
+            vehiculoRepositorio ?? VehiculoRepositorie();
 
+  // Indica si hay una operación en curso.
   bool _cargando = false;
+
+  // Contiene el mensaje de error actual, si existe.
   String? _mensajeError;
+
+  // Contiene el mensaje de éxito actual, si existe.
   String? _mensajeExito;
 
+  // Devuelve el estado actual de carga.
   bool get cargando => _cargando;
+
+  // Devuelve el mensaje de error actual.
   String? get mensajeError => _mensajeError;
+
+  // Devuelve el mensaje de éxito actual.
   String? get mensajeExito => _mensajeExito;
 
+  // Obtiene los vehículos disponibles.
+  // Entrada: ninguna.
+  // Salida: un flujo con la lista de vehículos.
   Stream<List<VehiculoModel>> obtenerVehiculos() {
     return _vehiculoRepositorio.obtenerVehiculos();
   }
 
-  Stream<List<CombustibleModel>> obtenerCargas({String? vehiculoUid}) {
+  // Obtiene las cargas, opcionalmente filtradas por vehículo.
+  // Entrada: vehiculoUid opcional para limitar los resultados.
+  // Salida: un flujo con la lista de cargas.
+  Stream<List<CombustibleModel>> obtenerCargas({
+    String? vehiculoUid,
+  }) {
     return _repositorio.obtenerCargas(vehiculoUid: vehiculoUid);
   }
 
+  // Valida y registra una carga de combustible.
+  // Entrada: carga con los datos que se desean guardar.
+  // Salida: true si se registra correctamente; false si la validación falla
+  // o si ocurre un error.
   Future<bool> registrarCarga(CombustibleModel carga) async {
     final errorValidacion = _validar(carga);
 
@@ -56,6 +85,10 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
+  // Valida y actualiza una carga de combustible existente.
+  // Entrada: carga con el identificador y los datos actualizados.
+  // Salida: true si se actualiza correctamente; false si los datos no son
+  // válidos o si ocurre un error.
   Future<bool> actualizarCarga(CombustibleModel carga) async {
     final errorValidacion = _validar(carga);
 
@@ -87,6 +120,10 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
+  // Elimina una carga de combustible.
+  // Entrada: uid, identificador de la carga que se eliminará.
+  // Salida: true si se elimina correctamente; false si el identificador no es
+  // válido o si ocurre un error.
   Future<bool> eliminarCarga(String uid) async {
     if (uid.trim().isEmpty) {
       _mensajeError = 'No se encontró el identificador de la carga.';
@@ -109,6 +146,9 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
+  // Calcula el rendimiento en kilómetros por litro de una carga.
+  // Entradas: cargas ordenadas por fecha y indiceActual de la carga evaluada.
+  // Salida: rendimiento en km/L o null si no se puede calcular.
   double? calcularRendimientoKmL(
     List<CombustibleModel> cargas,
     int indiceActual,
@@ -137,6 +177,9 @@ class CombustibleViewModel extends ChangeNotifier {
     return kilometrosRecorridos / cargaActual.litros;
   }
 
+  // Valida los datos de una carga de combustible.
+  // Entrada: carga cuyos campos se van a revisar.
+  // Salida: mensaje de error si hay datos inválidos; de lo contrario, null.
   String? _validar(CombustibleModel carga) {
     if (carga.vehiculoUid.trim().isEmpty) {
       return 'Selecciona un vehículo.';
@@ -161,6 +204,9 @@ class CombustibleViewModel extends ChangeNotifier {
     return null;
   }
 
+  // Convierte una excepción en un mensaje comprensible para el usuario.
+  // Entrada: error recibido durante una operación.
+  // Salida: texto descriptivo del problema.
   String _mensajeAmigable(Object error) {
     if (error is StateError) {
       return error.message.toString();
@@ -179,12 +225,18 @@ class CombustibleViewModel extends ChangeNotifier {
     return 'Ocurrió un error. Verifica tu conexión e inténtalo nuevamente.';
   }
 
+  // Limpia los mensajes actuales y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; deja los mensajes en null.
   void limpiarMensajes() {
     _mensajeError = null;
     _mensajeExito = null;
     notifyListeners();
   }
 
+  // Activa el estado de carga, limpia los mensajes anteriores y notifica.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece cargando en true.
   void _iniciarOperacion() {
     _cargando = true;
     _mensajeError = null;
@@ -192,6 +244,9 @@ class CombustibleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Desactiva el estado de carga y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece cargando en false.
   void _terminarOperacion() {
     _cargando = false;
     notifyListeners();

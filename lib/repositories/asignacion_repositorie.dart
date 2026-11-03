@@ -1,29 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../models/asignacion_model.dart';
 import '../models/user_model.dart';
 import '../models/vehiculos_model.dart';
 
+// Se comunica con Firebase para gestionar asignaciones de vehículos.
 class AsignacionRepositorie {
+  // Crea el repositorio con las conexiones proporcionadas o las predeterminadas.
+  // Entradas: firestore y auth son dependencias opcionales de Firebase.
+  // Salida: una instancia de AsignacionRepositorie configurada.
   AsignacionRepositorie({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
+  // Conexión a Cloud Firestore.
   final FirebaseFirestore _db;
+
+  // Servicio de Firebase Authentication.
   final FirebaseAuth _auth;
 
+  // Referencia a la colección de asignaciones.
   CollectionReference<Map<String, dynamic>> get _asignaciones =>
       _db.collection('asignacion');
 
+  // Referencia a la colección de usuarios.
   CollectionReference<Map<String, dynamic>> get _usuarios =>
       _db.collection('usuario');
 
+  // Referencia a la colección de vehículos.
   CollectionReference<Map<String, dynamic>> get _vehiculos =>
       _db.collection('vehiculo');
 
+  // Obtiene asignaciones en tiempo real y las filtra por texto y estado.
+  // Entradas: busqueda opcional y estado de asignación; por defecto muestra todas.
+  // Salida: flujo con las asignaciones ordenadas desde la fecha más reciente.
   Stream<List<AsignacionModel>> obtenerAsignaciones({
     String busqueda = '',
     String estado = 'todas',
@@ -59,6 +71,9 @@ class AsignacionRepositorie {
     });
   }
 
+  // Obtiene los operadores que no tienen una asignación activa.
+  // Entrada: excluirAsignacionUid opcional para ignorar una asignación al editarla.
+  // Salida: lista de usuarios cuyo rol es operador y que están disponibles.
   Future<List<UserModel>> obtenerOperadoresDisponibles({
     String? excluirAsignacionUid,
   }) async {
@@ -105,6 +120,9 @@ class AsignacionRepositorie {
     return resultado;
   }
 
+  // Obtiene los vehículos que pueden asignarse a un operador.
+  // Entrada: excluirAsignacionUid opcional para ignorar una asignación al editarla.
+  // Salida: lista de vehículos activos que no tienen otra asignación vigente.
   Future<List<VehiculoModel>> obtenerVehiculosDisponibles({
     String? excluirAsignacionUid,
   }) async {
@@ -164,6 +182,10 @@ class AsignacionRepositorie {
     return resultado;
   }
 
+  // Valida y crea una nueva asignación.
+  // Entradas: operadorUid, vehiculoUid, fechaInicio, tipo y, opcionalmente,
+  // fechaFin y motivoTemporal.
+  // Salida: un Future que termina cuando Firestore confirma la operación.
   Future<void> crearAsignacion({
     required String operadorUid,
     required String vehiculoUid,
@@ -186,6 +208,9 @@ class AsignacionRepositorie {
     );
   }
 
+  // Valida y actualiza una asignación existente.
+  // Entrada: asignacion con el identificador y los datos que se actualizarán.
+  // Salida: un Future que termina cuando Firestore confirma la operación.
   Future<void> actualizarAsignacion(AsignacionModel asignacion) async {
     final administradorUid = await _obtenerAdministradorUid();
 
@@ -201,6 +226,9 @@ class AsignacionRepositorie {
     );
   }
 
+  // Finaliza una asignación activa y libera el vehículo si aún tiene ese operador.
+  // Entrada: uidAsignacion, identificador de la asignación que se finalizará.
+  // Salida: un Future que termina cuando Firestore confirma los cambios.
   Future<void> finalizarAsignacion(String uidAsignacion) async {
     await _obtenerAdministradorUid();
 
@@ -231,7 +259,7 @@ class AsignacionRepositorie {
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
 
-    // Quita el operador solo si este vehículo todavía lo tiene asignado.
+    // Quita el operador solo si el vehículo todavía lo tiene asignado.
     if (documentoVehiculo.exists) {
       final datosVehiculo = documentoVehiculo.data() ?? {};
       final operadorActual = (datosVehiculo['operadorUidActual'] ??
@@ -251,6 +279,11 @@ class AsignacionRepositorie {
     await lote.commit();
   }
 
+  // Valida los datos y guarda una asignación nueva o actualizada.
+  // Entradas: identificador opcional de asignación, operador, vehículo,
+  // administrador, fechas, tipo y motivo temporal.
+  // Salida: un Future que termina al guardar los cambios; lanza errores
+  // si los datos no son válidos o los registros ya no están disponibles.
   Future<void> _guardarAsignacion({
     required String? uidAsignacion,
     required String operadorUid,
@@ -384,7 +417,8 @@ class AsignacionRepositorie {
         operadorEnVehiculo != operadorId &&
         !esMismoVehiculoDeLaEdicion) {
       throw StateError(
-        'El vehículo ya tiene un operador asignado. Finaliza esa asignación primero.',
+        'El vehículo ya tiene un operador asignado. '
+        'Finaliza esa asignación primero.',
       );
     }
 
@@ -428,24 +462,25 @@ class AsignacionRepositorie {
       lote.update(referenciaAsignacion, datosAsignacion);
     }
 
-    // El módulo Asignaciones es quien actualiza al operador actual del vehículo.
+    // El repositorio de asignaciones actualiza al operador del vehículo.
     lote.update(_vehiculos.doc(vehiculoId), {
       'operadorUidActual': operadorId,
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
 
-    // Si al editar se cambió de vehículo, se libera la unidad anterior.
+    // Si se cambió de vehículo, libera la unidad anterior cuando corresponda.
     if (asignacionAnterior != null &&
         asignacionAnterior.vehiculoUid != vehiculoId) {
       final referenciaVehiculoAnterior =
           _vehiculos.doc(asignacionAnterior.vehiculoUid);
       final documentoAnterior = await referenciaVehiculoAnterior.get();
 
-      final operadorAnterior = (documentoAnterior.data()?['operadorUidActual'] ??
-              documentoAnterior.data()?['operadorUid'] ??
-              '')
-          .toString()
-          .trim();
+      final operadorAnterior =
+          (documentoAnterior.data()?['operadorUidActual'] ??
+                  documentoAnterior.data()?['operadorUid'] ??
+                  '')
+              .toString()
+              .trim();
 
       if (documentoAnterior.exists &&
           operadorAnterior == asignacionAnterior.operadorUid) {
@@ -459,6 +494,10 @@ class AsignacionRepositorie {
     await lote.commit();
   }
 
+  // Verifica que el usuario autenticado pueda administrar asignaciones.
+  // Entrada: ninguna; consulta el usuario actual y su perfil en Firestore.
+  // Salida: uid del administrador autenticado; lanza StateError si no tiene
+  // sesión o no cuenta con el rol de administrador o superusuario.
   Future<String> _obtenerAdministradorUid() async {
     final usuarioActual = _auth.currentUser;
 

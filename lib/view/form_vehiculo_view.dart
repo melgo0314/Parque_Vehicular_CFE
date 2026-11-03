@@ -1,38 +1,70 @@
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/vehiculos_viewmodel.dart';
 
+// Formulario para registrar o editar un vehículo.
 class FormVehiculoView extends StatefulWidget {
+  // Vehículo que se editará; es null cuando se registra uno nuevo.
   final VehiculoModel? vehiculo;
 
+  // Crea el formulario y recibe opcionalmente un vehículo existente.
+  // Entradas: key opcional y vehiculo opcional para el modo de edición.
+  // Salida: una instancia de FormVehiculoView.
   const FormVehiculoView({
     super.key,
     this.vehiculo,
   });
 
+  // Crea el estado asociado al formulario.
+  // Entrada: ninguna.
+  // Salida: el estado que administra los campos y las operaciones.
   @override
   State<FormVehiculoView> createState() => _FormVehiculoViewState();
 }
 
+// Estado y comportamiento del formulario de vehículos.
 class _FormVehiculoViewState extends State<FormVehiculoView> {
+  // Llave para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
+
+  // ViewModel que registra y actualiza vehículos.
   final _viewModel = VehiculosViewModel();
 
+  // Controlador para las placas.
   final _placasController = TextEditingController();
-  final _numeroEconomicoController = TextEditingController();
-  final _marcaController = TextEditingController();
-  final _modeloController = TextEditingController();
-  final _anioController = TextEditingController();
-  final _intervaloPreventivoController = TextEditingController(text: '5000');
 
+  // Controlador para el número económico.
+  final _numeroEconomicoController = TextEditingController();
+
+  // Controlador para la marca.
+  final _marcaController = TextEditingController();
+
+  // Controlador para el modelo.
+  final _modeloController = TextEditingController();
+
+  // Controlador para el año.
+  final _anioController = TextEditingController();
+
+  // Controlador para el intervalo preventivo, con valor inicial de 5,000 km.
+  final _intervaloPreventivoController =
+      TextEditingController(text: '5000');
+
+  // Estado operativo seleccionado para el vehículo.
   String _estadoOperativo = 'operativo';
+
+  // Indica si se están guardando los datos del formulario.
   bool _guardando = false;
+
+  // Indica si se está cambiando el estado administrativo del vehículo.
   bool _cambiandoEstado = false;
 
+  // Indica si el formulario está editando un vehículo existente.
   bool get _esEdicion => widget.vehiculo != null;
 
+  // Carga los datos del vehículo existente en los campos del formulario.
+  // Entrada: ninguna; consulta el vehículo recibido por el widget.
+  // Salida: ninguna; prepara los controladores y el estado operativo.
   @override
   void initState() {
     super.initState();
@@ -47,10 +79,13 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       _anioController.text = vehiculo.anio.toString();
       _estadoOperativo = vehiculo.estadoOperativo;
       _intervaloPreventivoController.text =
-        vehiculo.intervaloPreventivoKm.toString();
+          vehiculo.intervaloPreventivoKm.toString();
     }
   }
 
+  // Libera los controladores y el ViewModel al cerrar el formulario.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _placasController.dispose();
@@ -63,6 +98,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     super.dispose();
   }
 
+  // Valida que un campo obligatorio tenga contenido.
+  // Entradas: valor escrito y nombreCampo para construir el mensaje de error.
+  // Salida: mensaje de error si el campo está vacío; de lo contrario, null.
   String? _validarObligatorio(String? valor, String nombreCampo) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe $nombreCampo.';
@@ -71,6 +109,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     return null;
   }
 
+  // Valida que el año esté dentro del rango permitido.
+  // Entrada: valor escrito en el campo del año.
+  // Salida: mensaje de error si no es válido; de lo contrario, null.
   String? _validarAnio(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe el año del vehículo.';
@@ -86,6 +127,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     return null;
   }
 
+  // Valida que el intervalo preventivo sea un número entero mayor que cero.
+  // Entrada: valor escrito en el campo del intervalo.
+  // Salida: mensaje de error si no es válido; de lo contrario, null.
   String? _validarIntervalo(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe el intervalo preventivo.';
@@ -100,6 +144,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     return null;
   }
 
+  // Valida y guarda los datos del vehículo.
+  // Entrada: ninguna; utiliza los valores de los campos del formulario.
+  // Salida: ninguna; muestra el resultado y cierra el formulario si se guarda.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
@@ -157,6 +204,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     Navigator.of(context).pop(true);
   }
 
+  // Solicita confirmación para dar de baja o reactivar el vehículo.
+  // Entrada: ninguna; utiliza el vehículo asociado al formulario.
+  // Salida: ninguna; cambia el estado si el usuario confirma.
   Future<void> _confirmarCambioEstado() async {
     final vehiculo = widget.vehiculo;
 
@@ -232,6 +282,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     Navigator.of(context).pop(true);
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se mostrará y error para determinar el color.
+  // Salida: ninguna; presenta un SnackBar en la pantalla actual.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -244,6 +297,10 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       );
   }
 
+  // Construye un campo de texto reutilizable para el formulario.
+  // Entradas: controlador, etiqueta, icono, función de validación y, de forma
+  // opcional, tipo de teclado, texto de ayuda, capitalización y sufijo.
+  // Salida: un TextFormField configurado con los valores recibidos.
   Widget _campo({
     required TextEditingController controller,
     required String etiqueta,
@@ -269,6 +326,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     );
   }
 
+  // Construye la interfaz del formulario de registro o edición.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets con los campos y acciones disponibles.
   @override
   Widget build(BuildContext context) {
     final vehiculo = widget.vehiculo;
@@ -373,7 +433,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                               const SizedBox(height: 14),
                               _campo(
                                 controller: _intervaloPreventivoController,
-                                etiqueta: 'Intervalo de mantenimiento preventivo',
+                                etiqueta:
+                                    'Intervalo de mantenimiento preventivo',
                                 icono: Icons.build_circle_outlined,
                                 tipoTeclado: TextInputType.number,
                                 capitalizacion: TextCapitalization.none,

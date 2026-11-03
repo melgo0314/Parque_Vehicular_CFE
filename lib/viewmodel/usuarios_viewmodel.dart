@@ -6,21 +6,38 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../repositories/usuario_repositorie.dart';
 
+// Coordina las operaciones de usuarios entre la interfaz y el repositorio.
 class UsuariosViewModel extends ChangeNotifier {
+  // Crea el ViewModel con el repositorio proporcionado o uno predeterminado.
+  // Entrada: repositorio opcional para consultar y modificar usuarios.
+  // Salida: una instancia de UsuariosViewModel configurada.
   UsuariosViewModel({UsuariosRepositorie? repositorio})
       : _repositorio = repositorio ?? UsuariosRepositorie();
 
+  // Repositorio encargado de comunicarse con Firebase.
   final UsuariosRepositorie _repositorio;
 
+  // Indica si hay una operación en curso.
   bool _cargando = false;
+
+  // Devuelve el estado actual de carga.
   bool get cargando => _cargando;
 
+  // Contiene el mensaje de error actual, si existe.
   String? _mensajeError;
+
+  // Devuelve el mensaje de error actual.
   String? get mensajeError => _mensajeError;
 
+  // Contiene el mensaje de éxito actual, si existe.
   String? _mensajeExito;
+
+  // Devuelve el mensaje de éxito actual.
   String? get mensajeExito => _mensajeExito;
 
+  // Obtiene usuarios en tiempo real, opcionalmente filtrados por texto y rol.
+  // Entradas: busqueda opcional y rol opcional para filtrar resultados.
+  // Salida: un flujo con la lista de usuarios.
   Stream<List<UserModel>> obtenerUsuarios({
     String busqueda = '',
     String? rol,
@@ -31,6 +48,11 @@ class UsuariosViewModel extends ChangeNotifier {
     );
   }
 
+  // Registra un usuario y, si aplica, su documento de licencia.
+  // Entradas: datos personales, credenciales, rol y contacto; archivoLicencia
+  // y nombreArchivoLicencia son opcionales.
+  // Salida: true si el registro termina correctamente; false si ocurre un error
+  // o ya hay otra operación en curso.
   Future<bool> registrarUsuario({
     required String nombre,
     required String apellidoP,
@@ -82,18 +104,24 @@ class UsuariosViewModel extends ChangeNotifier {
       return false;
     } on TimeoutException {
       _mensajeError =
-          'La carga del documento tardó demasiado. Revisa tu conexión e inténtalo otra vez.';
+          'La carga del documento tardó demasiado. '
+          'Revisa tu conexión e inténtalo otra vez.';
       return false;
     } catch (error) {
       debugPrint('Error al registrar usuario: $error');
       _mensajeError =
-          'No se pudo registrar el usuario. Revisa tu conexión e inténtalo de nuevo.';
+          'No se pudo registrar el usuario. '
+          'Revisa tu conexión e inténtalo de nuevo.';
       return false;
     } finally {
       _finalizarOperacion();
     }
   }
 
+  // Actualiza los datos de un usuario.
+  // Entrada: usuario con el identificador y los datos actualizados.
+  // Salida: true si la actualización termina correctamente; false si ocurre
+  // un error o ya hay otra operación en curso.
   Future<bool> actualizarUsuario(UserModel usuario) async {
     if (_cargando) return false;
 
@@ -111,13 +139,18 @@ class UsuariosViewModel extends ChangeNotifier {
       return false;
     } catch (error) {
       debugPrint('Error al actualizar usuario: $error');
-      _mensajeError = 'No se pudieron guardar los cambios. Inténtalo de nuevo.';
+      _mensajeError =
+          'No se pudieron guardar los cambios. Inténtalo de nuevo.';
       return false;
     } finally {
       _finalizarOperacion();
     }
   }
 
+  // Actualiza el perfil de un usuario y, opcionalmente, su contraseña.
+  // Entradas: usuario con los datos del perfil y nuevaContrasena opcional.
+  // Salida: true si la actualización termina correctamente; false si ocurre
+  // un error o ya hay otra operación en curso.
   Future<bool> actualizarUsuarioCompleto({
     required UserModel usuario,
     String? nuevaContrasena,
@@ -140,13 +173,18 @@ class UsuariosViewModel extends ChangeNotifier {
       return false;
     } catch (error) {
       debugPrint('Error al actualizar usuario: $error');
-      _mensajeError = 'No se pudieron guardar los cambios. Inténtalo de nuevo.';
+      _mensajeError =
+          'No se pudieron guardar los cambios. Inténtalo de nuevo.';
       return false;
     } finally {
       _finalizarOperacion();
     }
   }
 
+  // Elimina un usuario mediante el repositorio.
+  // Entrada: uid, identificador del usuario que se eliminará.
+  // Salida: true si se elimina correctamente; false si ocurre un error
+  // o ya hay otra operación en curso.
   Future<bool> eliminarUsuario(String uid) async {
     if (_cargando) return false;
 
@@ -169,12 +207,18 @@ class UsuariosViewModel extends ChangeNotifier {
     }
   }
 
+  // Limpia los mensajes actuales y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; deja los mensajes en null.
   void limpiarMensajes() {
     _mensajeError = null;
     _mensajeExito = null;
     notifyListeners();
   }
 
+  // Activa el estado de carga, limpia los mensajes y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece cargando en true.
   void _iniciarOperacion() {
     _cargando = true;
     _mensajeError = null;
@@ -182,11 +226,17 @@ class UsuariosViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Desactiva el estado de carga y notifica a la interfaz.
+  // Entrada: ninguna.
+  // Salida: ninguna; establece cargando en false.
   void _finalizarOperacion() {
     _cargando = false;
     notifyListeners();
   }
 
+  // Convierte un código de error de Firebase Authentication en un mensaje.
+  // Entrada: code, código devuelto por Firebase Authentication.
+  // Salida: mensaje comprensible para el usuario.
   String _mensajeErrorAuth(String code) {
     switch (code) {
       case 'email-already-in-use':
@@ -200,6 +250,9 @@ class UsuariosViewModel extends ChangeNotifier {
     }
   }
 
+  // Convierte un código de error de Firebase Storage en un mensaje.
+  // Entrada: code, código devuelto durante la carga del archivo.
+  // Salida: mensaje comprensible para el usuario.
   String _mensajeErrorStorage(String code) {
     switch (code) {
       case 'unauthorized':
@@ -219,6 +272,9 @@ class UsuariosViewModel extends ChangeNotifier {
     }
   }
 
+  // Convierte una excepción de Cloud Functions en un mensaje.
+  // Entrada: error devuelto por Firebase Cloud Functions.
+  // Salida: mensaje comprensible para el usuario.
   String _mensajeErrorFunctions(FirebaseFunctionsException error) {
     switch (error.code) {
       case 'unauthenticated':

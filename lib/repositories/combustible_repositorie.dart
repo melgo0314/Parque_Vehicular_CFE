@@ -2,20 +2,31 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:p_vehicular/models/combustible_model.dart';
 
+// Se comunica con Firebase para administrar las cargas de combustible.
 class CombustibleRepositorie {
+  // Conexión a Cloud Firestore.
   final FirebaseFirestore _db;
+
+  // Servicio de Firebase Authentication.
   final FirebaseAuth _auth;
 
+  // Crea el repositorio con las conexiones proporcionadas o las predeterminadas.
+  // Entradas: db y auth son dependencias opcionales de Firebase.
+  // Salida: una instancia de CombustibleRepositorie configurada.
   CombustibleRepositorie({
     FirebaseFirestore? db,
     FirebaseAuth? auth,
-  }) : _db = db ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance;
+  })  : _db = db ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
+  // Referencia a la colección de cargas de combustible.
   CollectionReference<Map<String, dynamic>> get _cargas =>
       _db.collection('combustible');
 
-  // Registra la carga y obtiene el RPE del usuario autenticado
+  // Registra una carga y agrega el RPE del usuario autenticado.
+  // Entrada: carga con los datos que se desean guardar.
+  // Salida: identificador del documento creado en Firestore.
+  // Lanza StateError si no hay una sesión activa o no se encuentra el RPE.
   Future<String> registrarCarga(CombustibleModel carga) async {
     final usuarioActual = _auth.currentUser;
 
@@ -38,8 +49,12 @@ class CombustibleRepositorie {
     return documentoCreado.id;
   }
 
-  // Escucha el historial completo o el de un vehículo específico.
-  Stream<List<CombustibleModel>> obtenerCargas({String? vehiculoUid}) {
+  // Escucha todas las cargas o filtra el historial por vehículo.
+  // Entrada: vehiculoUid opcional para limitar la consulta a un vehículo.
+  // Salida: un flujo de cargas ordenado desde la fecha más reciente.
+  Stream<List<CombustibleModel>> obtenerCargas({
+    String? vehiculoUid,
+  }) {
     Query<Map<String, dynamic>> consulta = _cargas;
 
     if (vehiculoUid != null && vehiculoUid.trim().isNotEmpty) {
@@ -51,10 +66,12 @@ class CombustibleRepositorie {
 
     return consulta.snapshots().map((resultado) {
       final cargas = resultado.docs
-          .map((documento) => CombustibleModel.fromMap(
-                documento.data(),
-                documento.id,
-              ))
+          .map(
+            (documento) => CombustibleModel.fromMap(
+              documento.data(),
+              documento.id,
+            ),
+          )
           .toList();
 
       cargas.sort((a, b) => b.fechaCarga.compareTo(a.fechaCarga));
@@ -62,7 +79,10 @@ class CombustibleRepositorie {
     });
   }
 
-  // Actualiza una carga existente
+  // Actualiza una carga de combustible existente.
+  // Entrada: carga con el identificador y los datos actualizados.
+  // Salida: un Future que termina cuando Firestore confirma la actualización.
+  // Lanza ArgumentError si la carga no tiene un identificador válido.
   Future<void> actualizarCarga(CombustibleModel carga) async {
     if (carga.uid.trim().isEmpty) {
       throw ArgumentError('La carga no tiene un identificador válido.');
@@ -71,7 +91,11 @@ class CombustibleRepositorie {
     await _cargas.doc(carga.uid).update(carga.toMap());
   }
 
-  // Elimina una carga. La pantalla debe pedir confirmación antes de llamar a este método.
+  // Elimina una carga de combustible.
+  // Entrada: uid, identificador del documento que se eliminará.
+  // Salida: un Future que termina cuando Firestore confirma la eliminación.
+  // La pantalla debe pedir confirmación antes de llamar a este método.
+  // Lanza ArgumentError si el identificador está vacío.
   Future<void> eliminarCarga(String uid) async {
     if (uid.trim().isEmpty) {
       throw ArgumentError('La carga no tiene un identificador válido.');

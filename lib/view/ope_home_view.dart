@@ -1,14 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:p_vehicular/core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
 import '../models/vehiculos_model.dart';
 
+// Pantalla principal para usuarios con rol de operador.
 class OpeHomeView extends StatelessWidget {
+  // Crea la pantalla principal del operador.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de OpeHomeView.
   const OpeHomeView({super.key});
 
+  // Obtiene en tiempo real el documento del usuario autenticado.
+  // Entrada: ninguna; utiliza la sesión actual de Firebase Authentication.
+  // Salida: flujo con el documento del usuario o vacío si no hay sesión.
   Stream<DocumentSnapshot<Map<String, dynamic>>> _obtenerUsuario() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -22,6 +28,9 @@ class OpeHomeView extends StatelessWidget {
         .snapshots();
   }
 
+  // Obtiene los vehículos asignados al usuario autenticado.
+  // Entrada: ninguna; utiliza el identificador del usuario actual.
+  // Salida: flujo con los vehículos asignados o vacío si no hay sesión.
   Stream<QuerySnapshot<Map<String, dynamic>>> _obtenerVehiculoAsignado() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -36,6 +45,9 @@ class OpeHomeView extends StatelessWidget {
         .snapshots();
   }
 
+  // Cierra la sesión y redirige a la pantalla de inicio de sesión.
+  // Entrada: context de la pantalla actual.
+  // Salida: ninguna; navega al inicio de sesión o muestra un mensaje si falla.
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -59,6 +71,9 @@ class OpeHomeView extends StatelessWidget {
     }
   }
 
+  // Construye la pantalla con la unidad asignada, acciones y módulos.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla principal del operador.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,6 +165,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye el encabezado con el nombre y el rol del usuario.
+  // Entrada: context de la pantalla actual.
+  // Salida: un widget con identidad del sistema, notificaciones y cierre de sesión.
   Widget _encabezado(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -285,6 +303,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye la tarjeta con los datos del vehículo asignado.
+  // Entrada: vehiculo cuyos datos se mostrarán.
+  // Salida: tarjeta con descripción, placas, número económico y kilometraje.
   Widget _tarjetaUnidadAsignada(VehiculoModel vehiculo) {
     final descripcion =
         '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
@@ -384,6 +405,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye una tarjeta para informar el estado de la unidad.
+  // Entradas: mensaje que se presentará e icono que lo acompañará.
+  // Salida: una tarjeta con el mensaje indicado.
   Widget _tarjetaMensajeUnidad(
     String mensaje, {
     required IconData icono,
@@ -413,6 +437,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye la tarjeta que se muestra mientras se consulta la unidad.
+  // Entrada: ninguna.
+  // Salida: una tarjeta con un indicador de progreso.
   Widget _tarjetaCargandoUnidad() {
     return Card(
       color: AppTheme.pureWhite,
@@ -430,6 +457,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye las acciones rápidas para registrar combustible o kilometraje.
+  // Entradas: context de navegación y habilitadas según la asignación del vehículo.
+  // Salida: una fila con los botones de acción rápida.
   Widget _accionesRapidas(
     BuildContext context, {
     required bool habilitadas,
@@ -465,6 +495,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye un botón de acción rápida con su estilo y comportamiento.
+  // Entradas: etiqueta, icono, colores, estado habilitado y función alTocar.
+  // Salida: un botón táctil para ejecutar la acción indicada.
   Widget _botonAccionRapida({
     required String etiqueta,
     required IconData icono,
@@ -496,8 +529,7 @@ class OpeHomeView extends StatelessWidget {
                   etiqueta,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color:
-                        habilitado ? colorTexto : AppTheme.secondaryText,
+                    color: habilitado ? colorTexto : AppTheme.secondaryText,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -510,6 +542,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye la cuadrícula de módulos disponibles para el operador.
+  // Entrada: context de navegación.
+  // Salida: cuadrícula con accesos a vehículos, mantenimientos e información.
   Widget _modulos(BuildContext context) {
     return GridView.count(
       shrinkWrap: true,
@@ -532,7 +567,7 @@ class OpeHomeView extends StatelessWidget {
         _tarjetaModulo(
           'Inventario',
           Icons.inventory_2_outlined,
-          () {},
+          () => Navigator.pushNamed(context, AppRoutes.inventario),
         ),
         _tarjetaModulo(
           'Expedientes',
@@ -543,6 +578,9 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
+  // Construye una tarjeta de acceso a un módulo.
+  // Entradas: titulo del módulo, icono y función alTocar.
+  // Salida: una tarjeta que ejecuta la acción indicada al tocarla.
   Widget _tarjetaModulo(
     String titulo,
     IconData icono,

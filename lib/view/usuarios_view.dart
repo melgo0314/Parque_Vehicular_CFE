@@ -1,25 +1,43 @@
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../viewmodel/usuarios_viewmodel.dart';
 import 'form_usuario_view.dart';
 
+// Pantalla para consultar y administrar usuarios.
 class UsuariosView extends StatefulWidget {
+  // Crea la pantalla de usuarios.
+  // Entrada: key opcional para identificar el widget.
+  // Salida: una instancia de UsuariosView.
   const UsuariosView({super.key});
 
+  // Crea el estado asociado a la pantalla.
+  // Entrada: ninguna.
+  // Salida: el estado que administra la búsqueda, filtros y acciones.
   @override
   State<UsuariosView> createState() => _UsuariosViewState();
 }
 
+// Estado y comportamiento de la pantalla de usuarios.
 class _UsuariosViewState extends State<UsuariosView> {
+  // ViewModel que consulta y administra usuarios.
   final UsuariosViewModel _viewModel = UsuariosViewModel();
+
+  // Controlador del campo de búsqueda.
   final TextEditingController _busquedaController = TextEditingController();
 
+  // Texto escrito en el campo de búsqueda.
   String _busqueda = '';
+
+  // Rol seleccionado para filtrar la lista.
   String _rolFiltro = 'todos';
+
+  // Identificador del usuario que se está eliminando.
   String? _uidEliminando;
 
+  // Libera el controlador y el ViewModel al cerrar la pantalla.
+  // Entrada: ninguna.
+  // Salida: ninguna.
   @override
   void dispose() {
     _busquedaController.dispose();
@@ -27,6 +45,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     super.dispose();
   }
 
+  // Convierte el identificador interno de un rol en una etiqueta legible.
+  // Entrada: rol guardado en el perfil del usuario.
+  // Salida: nombre del rol para mostrar en la interfaz.
   String _nombreRol(String rol) {
     switch (rol.trim().toLowerCase()) {
       case 'administrador':
@@ -40,6 +61,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     }
   }
 
+  // Obtiene las iniciales del nombre y primer apellido del usuario.
+  // Entrada: usuario del que se obtendrán las iniciales.
+  // Salida: iniciales en mayúsculas o un signo de interrogación si no hay nombre.
   String _iniciales(UserModel usuario) {
     final nombre = usuario.nombre.trim();
     final apellido = usuario.apellidoP.trim();
@@ -54,6 +78,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     return '$inicialNombre$inicialApellido';
   }
 
+  // Muestra un mensaje flotante de éxito o error.
+  // Entradas: mensaje que se presentará y error para determinar el color.
+  // Salida: ninguna; muestra un SnackBar si la pantalla sigue activa.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     if (!mounted) return;
 
@@ -68,6 +95,9 @@ class _UsuariosViewState extends State<UsuariosView> {
       );
   }
 
+  // Abre el formulario para crear o editar un usuario.
+  // Entrada: usuario opcional; si se proporciona, se abrirá en modo edición.
+  // Salida: ninguna; el flujo de Firestore actualiza la lista automáticamente.
   Future<void> _abrirFormulario({UserModel? usuario}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -75,9 +105,12 @@ class _UsuariosViewState extends State<UsuariosView> {
       ),
     );
 
-    // El stream de Firestore actualiza la lista automáticamente.
+    // El flujo de Firestore actualiza la lista automáticamente.
   }
 
+  // Solicita confirmación y elimina el usuario seleccionado.
+  // Entrada: usuario que se desea eliminar.
+  // Salida: ninguna; muestra el resultado de la eliminación.
   Future<void> _confirmarEliminacion(UserModel usuario) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -133,6 +166,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     );
   }
 
+  // Construye la tarjeta con los datos y acciones de un usuario.
+  // Entrada: usuario que se mostrará.
+  // Salida: una tarjeta con sus datos, rol y botones para editar o eliminar.
   Widget _tarjetaUsuario(UserModel usuario) {
     final eliminando = _uidEliminando == usuario.uid;
 
@@ -219,9 +255,8 @@ class _UsuariosViewState extends State<UsuariosView> {
                 minWidth: 48,
                 minHeight: 48,
               ),
-              onPressed: eliminando
-                  ? null
-                  : () => _abrirFormulario(usuario: usuario),
+              onPressed:
+                  eliminando ? null : () => _abrirFormulario(usuario: usuario),
               icon: const Icon(Icons.edit_outlined),
               color: AppTheme.cfeGreen,
             ),
@@ -231,9 +266,8 @@ class _UsuariosViewState extends State<UsuariosView> {
                 minWidth: 48,
                 minHeight: 48,
               ),
-              onPressed: eliminando
-                  ? null
-                  : () => _confirmarEliminacion(usuario),
+              onPressed:
+                  eliminando ? null : () => _confirmarEliminacion(usuario),
               icon: eliminando
                   ? const SizedBox(
                       width: 20,
@@ -249,6 +283,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     );
   }
 
+  // Construye el selector para filtrar usuarios por rol.
+  // Entrada: ninguna; utiliza y actualiza el rol seleccionado.
+  // Salida: un campo desplegable con las opciones de rol.
   Widget _filtroRol() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -289,6 +326,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     );
   }
 
+  // Construye la pantalla con búsqueda, filtro y lista de usuarios.
+  // Entrada: context de la pantalla actual.
+  // Salida: el árbol de widgets de la pantalla de usuarios.
   @override
   Widget build(BuildContext context) {
     final String? rol = _rolFiltro == 'todos' ? null : _rolFiltro;

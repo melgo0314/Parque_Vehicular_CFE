@@ -1,58 +1,44 @@
 import 'package:flutter/material.dart';
+
 import '../models/articulo_model.dart';
 import '../models/inventario_model.dart';
 import '../models/vehiculos_model.dart';
 import '../repositories/inventario_repositorie.dart';
 
-// ViewModel que conecta la interfaz con el repositorio de inventario
 class InventarioViewModel extends ChangeNotifier {
-  // Repositorio que consulta y modifica los datos en la fuente de datos.
   final InventarioRepositorie _repositorio = InventarioRepositorie();
 
-  // Indica si hay una operación de escritura en curso.
   bool _cargando = false;
-
-  // Mensaje que informa de un error ocurrido en una operación.
   String? _mensajeError;
-
-  // Mensaje que confirma que una operación terminó correctamente.
   String? _mensajeExito;
 
-  // Indica si el ViewModel está realizando una operación.
   bool get cargando => _cargando;
-
-  // Devuelve el mensaje de error actual, si existe.
   String? get mensajeError => _mensajeError;
-
-  // Devuelve el mensaje de éxito actual, si existe.
   String? get mensajeExito => _mensajeExito;
 
-  // Consulta los vehículos registrados.
-  // Entrada: ninguna.
-  // Salida: flujo con la lista actualizada de vehículos.
-  Stream<List<VehiculoModel>> obtenerVehiculos() {
-    return _repositorio.obtenerVehiculos();
+  // Consultar el rol del usuario que inició sesión.
+  Future<String> obtenerRolUsuarioActual() {
+    return _repositorio.obtenerRolUsuarioActual();
   }
 
-  // Consulta el catálogo de artículos.
-  // Entrada: ninguna.
-  // Salida: flujo con la lista actualizada de artículos.
+  // Consultar solamente los vehículos permitidos para el usuario.
+  Stream<List<VehiculoModel>> obtenerVehiculosPermitidos() {
+    return _repositorio.obtenerVehiculosPermitidos();
+  }
+
+  // Consultar el catálogo de artículos activos.
   Stream<List<ArticuloModel>> obtenerArticulos() {
     return _repositorio.obtenerArticulos();
   }
 
-  // Consulta los registros del checklist de un vehículo.
-  // Entrada: UID del vehículo cuyo inventario se desea consultar.
-  // Salida: flujo con los registros de inventario del vehículo.
+  // Consultar el checklist de un vehículo.
   Stream<List<InventarioModel>> obtenerInventarioVehiculo(
     String vehiculoUid,
   ) {
     return _repositorio.obtenerInventarioVehiculo(vehiculoUid);
   }
 
-  // Agrega un artículo al catálogo.
-  // Entrada: objeto ArticuloModel con los datos del artículo.
-  // Salida: true si se agregó correctamente; false si ocurrió un error.
+  // Agregar un artículo al catálogo.
   Future<bool> registrarArticulo(ArticuloModel articulo) async {
     _iniciarCarga();
 
@@ -68,9 +54,7 @@ class InventarioViewModel extends ChangeNotifier {
     }
   }
 
-  // Actualiza los datos de un artículo del catálogo.
-  // Entrada: objeto ArticuloModel con el artículo y sus datos actualizados.
-  // Salida: true si se actualizó correctamente; false si ocurrió un error.
+  // Actualizar un artículo del catálogo.
   Future<bool> actualizarArticulo(ArticuloModel articulo) async {
     _iniciarCarga();
 
@@ -87,9 +71,7 @@ class InventarioViewModel extends ChangeNotifier {
     }
   }
 
-  // Guarda o actualiza un artículo en el checklist del vehículo.
-  // Entrada: objeto InventarioModel con los datos del registro.
-  // Salida: true si se guardó correctamente; false si ocurrió un error.
+  // Guardar o actualizar un artículo en el checklist.
   Future<bool> guardarRegistro(InventarioModel registro) async {
     _iniciarCarga();
 
@@ -106,9 +88,7 @@ class InventarioViewModel extends ChangeNotifier {
     }
   }
 
-  // Retira un artículo del checklist de un vehículo.
-  // Entrada: UID del vehículo y UID del artículo que se retirará.
-  // Salida: true si se retiró correctamente; false si ocurrió un error.
+  // Retirar un artículo del checklist.
   Future<bool> eliminarRegistro({
     required String vehiculoUid,
     required String articuloUid,
@@ -131,18 +111,12 @@ class InventarioViewModel extends ChangeNotifier {
     }
   }
 
-  // Borra los mensajes actuales y notifica el cambio a la interfaz.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   void limpiarMensajes() {
     _mensajeError = null;
     _mensajeExito = null;
     notifyListeners();
   }
 
-  // Activa el estado de carga, limpia mensajes anteriores y notifica el cambio.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   void _iniciarCarga() {
     _cargando = true;
     _mensajeError = null;
@@ -150,9 +124,6 @@ class InventarioViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Desactiva el estado de carga y notifica el cambio a la interfaz.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   void _terminarCarga() {
     _cargando = false;
     notifyListeners();

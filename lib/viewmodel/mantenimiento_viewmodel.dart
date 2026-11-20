@@ -4,7 +4,7 @@ import 'package:p_vehicular/models/vehiculos_model.dart';
 import '../models/mantenimiento_model.dart';
 import '../repositories/mantenimiento_repositorie.dart';
 
-// Coordina las operaciones de mantenimiento entre la interfaz y el repositorio.
+// Administra las operaciones de mantenimiento entre la interfaz y el repositorio.
 class MantenimientoViewModel extends ChangeNotifier {
   // Repositorio que consulta y administra los datos de mantenimiento.
   final MantenimientoRepositorie _repositorio = MantenimientoRepositorie();

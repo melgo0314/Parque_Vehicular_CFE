@@ -156,7 +156,7 @@ class _SessionTimeoutListenerState extends State<SessionTimeoutListener>
     final minutos = _tiempoInactividad.inMinutes;
 
     if (minutos == 5) {
-      return '5 minuto de inactividad';
+      return '5 minutos de inactividad';
     }
 
     return '$minutos minutos de inactividad';

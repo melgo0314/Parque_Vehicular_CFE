@@ -173,7 +173,12 @@ class SuperHomeView extends StatelessWidget {
                   color: AppTheme.pureWhite,
                   size: 26,
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pushNamed(
+                    context,
+                    AppRoutes.notificaciones,
+                  );
+                },
               ),
               IconButton(
                 tooltip: 'Cerrar sesión',

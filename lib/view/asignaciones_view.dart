@@ -241,7 +241,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
             FilledButton(
               style: FilledButton.styleFrom(
                 minimumSize: const Size(100, 48),
-                backgroundColor: AppTheme.cfeGreen,
+                backgroundColor: AppTheme.errorRed,
                 foregroundColor: AppTheme.pureWhite,
               ),
               onPressed: () => Navigator.pop(dialogContext, true),

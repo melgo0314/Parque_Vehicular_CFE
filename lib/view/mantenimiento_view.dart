@@ -1,5 +1,9 @@
 import 'dart:math' as math;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
 import '../models/mantenimiento_model.dart';
@@ -7,38 +11,27 @@ import '../models/vehiculos_model.dart';
 import '../viewmodel/mantenimiento_viewmodel.dart';
 import 'form_mantenimiento_view.dart';
 
-// Pantalla que presenta los mantenimientos de los vehículos.
 class MantenimientoView extends StatefulWidget {
-  // Crea la pantalla de mantenimientos.
-  // Entradas: key opcional y lista de vehículos requerida por la ruta.
-  // Salida: una instancia de MantenimientoView.
+  final List<dynamic> vehiculos;
+
   const MantenimientoView({
     super.key,
-    required List<dynamic> vehiculos,
+    this.vehiculos = const [],
   });
 
-  // Crea el estado asociado a la pantalla.
-  // Entrada: ninguna.
-  // Salida: el estado que administra el historial y sus filtros.
   @override
   State<MantenimientoView> createState() => _MantenimientoViewState();
 }
 
-// Estado y comportamiento de la pantalla de mantenimientos.
 class _MantenimientoViewState extends State<MantenimientoView> {
-  // ViewModel que consulta y administra mantenimientos.
   final MantenimientoViewModel _viewModel = MantenimientoViewModel();
 
-  // Flujo de vehículos que alimenta el selector.
   late final Stream<List<VehiculoModel>> _vehiculosStream;
+  late final Future<bool> _esOperadorFuture;
 
-  // Identificador del vehículo seleccionado.
   String? _vehiculoSeleccionadoUid;
-
-  // Tipo de mantenimiento seleccionado para filtrar el historial.
   String _filtroSeleccionado = 'todos';
 
-  // Opciones de filtro disponibles en el historial.
   final List<Map<String, String>> _filtros = const [
     {'valor': 'todos', 'texto': 'Todos'},
     {'valor': 'preventivo', 'texto': 'Preventivo'},
@@ -46,50 +39,72 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     {'valor': 'prueba', 'texto': 'Pruebas PEMP'},
   ];
 
-  // Inicializa el flujo de vehículos al crear el estado.
-  // Entrada: ninguna.
-  // Salida: ninguna; prepara el flujo que usa el selector de vehículos.
   @override
   void initState() {
     super.initState();
+
+    final vehiculosRecibidos =
+        widget.vehiculos.whereType<VehiculoModel>().toList();
+
+    if (vehiculosRecibidos.length == 1) {
+      _vehiculoSeleccionadoUid = vehiculosRecibidos.first.uid;
+    }
+
     _vehiculosStream = _viewModel.obtenerVehiculos();
+    _esOperadorFuture = _consultarSiEsOperador();
   }
 
-  // Libera el ViewModel al cerrar la pantalla.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   @override
   void dispose() {
     _viewModel.dispose();
     super.dispose();
   }
 
-  // Regresa a la pantalla anterior o a la página principal del administrador.
-  // Entrada: ninguna.
-  // Salida: ninguna; realiza la navegación correspondiente.
-  void _regresar() {
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    } else {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoutes.adminHome,
-        (route) => false,
-      );
+  Future<bool> _consultarSiEsOperador() async {
+    final usuarioActual = FirebaseAuth.instance.currentUser;
+
+    if (usuarioActual == null) {
+      return true;
+    }
+
+    try {
+      final documento = await FirebaseFirestore.instance
+          .collection('usuario')
+          .doc(usuarioActual.uid)
+          .get();
+
+      final rol =
+          documento.data()?['rol']?.toString().trim().toLowerCase() ?? '';
+
+      return rol != 'administrador' && rol != 'superusuario';
+    } catch (_) {
+      // Si no se puede comprobar el rol, ocultamos el selector por seguridad.
+      return true;
     }
   }
 
-  // Construye una descripción breve del vehículo.
-  // Entrada: vehiculo cuyos datos se combinarán.
-  // Salida: número económico, marca, modelo y año en un solo texto.
+  Future<void> _regresar() async {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+      return;
+    }
+
+    final esOperador = await _esOperadorFuture;
+
+    if (!mounted) return;
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      esOperador ? AppRoutes.operatorHome : AppRoutes.adminHome,
+      (route) => false,
+    );
+  }
+
   String _nombreVehiculo(VehiculoModel vehiculo) {
     return '${vehiculo.numeroEconomico} · '
         '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}';
   }
 
-  // Convierte el nombre interno del módulo en una etiqueta legible.
-  // Entrada: modulo guardado en el registro.
-  // Salida: nombre del módulo para mostrar en la interfaz.
   String _nombreModulo(String modulo) {
     switch (modulo) {
       case 'mecanico':
@@ -103,9 +118,6 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     }
   }
 
-  // Convierte el tipo interno del mantenimiento en una etiqueta legible.
-  // Entrada: tipo guardado en el registro.
-  // Salida: nombre del tipo para mostrar en la interfaz.
   String _nombreTipo(String tipo) {
     switch (tipo) {
       case 'preventivo':
@@ -119,10 +131,11 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     }
   }
 
-  // Da formato a una fecha para mostrarla en el historial.
-  // Entrada: fecha que se desea presentar.
-  // Salida: texto con día, mes abreviado y año.
-  String _fecha(DateTime fecha) {
+  String _fecha(DateTime? fecha) {
+    if (fecha == null) {
+      return 'Sin fecha';
+    }
+
     const meses = [
       'ene',
       'feb',
@@ -141,9 +154,6 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     return '${fecha.day} ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
-  // Obtiene el color de fondo correspondiente al tipo de mantenimiento.
-  // Entrada: tipo de mantenimiento.
-  // Salida: color de fondo asociado al tipo.
   Color _colorFondoTipo(String tipo) {
     switch (tipo) {
       case 'correctivo':
@@ -156,9 +166,6 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     }
   }
 
-  // Obtiene el color de texto correspondiente al tipo de mantenimiento.
-  // Entrada: tipo de mantenimiento.
-  // Salida: color de texto asociado al tipo.
   Color _colorTextoTipo(String tipo) {
     switch (tipo) {
       case 'correctivo':
@@ -171,9 +178,6 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     }
   }
 
-  // Abre el formulario para registrar o editar un mantenimiento.
-  // Entradas: vehiculo requerido y mantenimiento opcional para editar.
-  // Salida: ninguna; abre el formulario correspondiente.
   Future<void> _abrirFormulario({
     required VehiculoModel vehiculo,
     MantenimientoModel? mantenimiento,
@@ -189,32 +193,29 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     );
   }
 
-  // Pide confirmación antes de eliminar un mantenimiento.
-  // Entrada: mantenimiento que se desea eliminar.
-  // Salida: ninguna; elimina el registro si se confirma y muestra el resultado.
   Future<void> _confirmarEliminacion(
     MantenimientoModel mantenimiento,
   ) async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Eliminar mantenimiento'),
           content: const Text(
-            '¿Quieres eliminar este registro? '
-            'Esta acción no se puede deshacer.',
+            '¿Quieres eliminar este registro? Esta acción no se puede deshacer.',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancelar'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
+                minimumSize: const Size(100, 48),
                 backgroundColor: AppTheme.errorRed,
                 foregroundColor: AppTheme.pureWhite,
               ),
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Eliminar'),
             ),
           ],
@@ -246,9 +247,6 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     _viewModel.limpiarMensajes();
   }
 
-  // Calcula el próximo kilometraje programado para mantenimiento preventivo.
-  // Entradas: vehiculo y lista de mantenimientos relacionados.
-  // Salida: kilometraje del próximo preventivo o null si no puede calcularse.
   int? _obtenerProximoPreventivo(
     VehiculoModel vehiculo,
     List<MantenimientoModel> mantenimientos,
@@ -277,9 +275,12 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     }).toList();
 
     if (realizados.isNotEmpty && intervalo > 0) {
-      realizados.sort(
-        (a, b) => b.fechaRealizado.compareTo(a.fechaRealizado),
-      );
+      realizados.sort((a, b) {
+        final fechaA = a.fechaRealizado ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final fechaB = b.fechaRealizado ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+        return fechaB.compareTo(fechaA);
+      });
 
       return realizados.first.kilometrajeRealizado! + intervalo;
     }
@@ -291,17 +292,11 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     return null;
   }
 
-  // Construye un aviso sobre el próximo mantenimiento preventivo.
-  // Entradas: vehiculo y lista de mantenimientos relacionados.
-  // Salida: tarjeta informativa o un widget vacío si no hay un próximo servicio.
   Widget _mostrarAvisoPreventivo(
     VehiculoModel vehiculo,
     List<MantenimientoModel> mantenimientos,
   ) {
-    final proximo = _obtenerProximoPreventivo(
-      vehiculo,
-      mantenimientos,
-    );
+    final proximo = _obtenerProximoPreventivo(vehiculo, mantenimientos);
 
     if (proximo == null) {
       return const SizedBox.shrink();
@@ -343,8 +338,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                         ? 'Se excedió por ${faltan.abs()} km · '
                             'kilometraje actual: '
                             '${vehiculo.kilometrajeActual} km'
-                        : 'Faltan $faltan km · '
-                            'kilometraje actual: '
+                        : 'Faltan $faltan km · kilometraje actual: '
                             '${vehiculo.kilometrajeActual} km',
                     style: TextStyle(
                       color: vencido
@@ -361,19 +355,12 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     );
   }
 
-  // Construye una tarjeta con los datos de un mantenimiento.
-  // Entradas: mantenimiento que se mostrará y vehículo relacionado.
-  // Salida: tarjeta con detalles, fecha y acciones para editar o eliminar.
   Widget _tarjetaMantenimiento(
     MantenimientoModel mantenimiento,
     VehiculoModel vehiculo,
   ) {
-    final colorFondo = _colorFondoTipo(
-      mantenimiento.tipoMantenimiento,
-    );
-    final colorTexto = _colorTextoTipo(
-      mantenimiento.tipoMantenimiento,
-    );
+    final colorFondo = _colorFondoTipo(mantenimiento.tipoMantenimiento);
+    final colorTexto = _colorTextoTipo(mantenimiento.tipoMantenimiento);
 
     return Card(
       color: AppTheme.pureWhite,
@@ -436,19 +423,16 @@ class _MantenimientoViewState extends State<MantenimientoView> {
               const SizedBox(height: 6),
               Text(
                 'Categoría PEMP: ${mantenimiento.categoriaPrueba}',
-                style: const TextStyle(
-                  color: AppTheme.primaryText,
-                ),
+                style: const TextStyle(color: AppTheme.primaryText),
               ),
             ],
             if (mantenimiento.detalleRefacciones.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Refacciones: '
-                '${mantenimiento.detalleRefacciones.map((pieza) => '${pieza.nombre} ×${pieza.cantidad}').join(', ')}',
-                style: const TextStyle(
-                  color: AppTheme.secondaryText,
-                ),
+                'Refacciones: ${mantenimiento.detalleRefacciones.map(
+                  (pieza) => '${pieza.nombre} ×${pieza.cantidad}',
+                ).join(', ')}',
+                style: const TextStyle(color: AppTheme.secondaryText),
               ),
             ],
             const SizedBox(height: 8),
@@ -503,32 +487,24 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                 Text(
                   'Caducidad: '
                   '${_fecha(mantenimiento.fechaCaducidadLlantas!)}',
-                  style: const TextStyle(
-                    color: AppTheme.secondaryText,
-                  ),
+                  style: const TextStyle(color: AppTheme.secondaryText),
                 ),
               if (mantenimiento.vidaUtilLlantas != null)
                 Text(
                   'Vida útil: ${mantenimiento.vidaUtilLlantas} km',
-                  style: const TextStyle(
-                    color: AppTheme.secondaryText,
-                  ),
+                  style: const TextStyle(color: AppTheme.secondaryText),
                 ),
               if (mantenimiento.nivelDesgasteLlantas != null)
                 Text(
                   'Desgaste: ${mantenimiento.nivelDesgasteLlantas}%',
-                  style: const TextStyle(
-                    color: AppTheme.secondaryText,
-                  ),
+                  style: const TextStyle(color: AppTheme.secondaryText),
                 ),
             ],
             if (mantenimiento.observaciones.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 'Observaciones: ${mantenimiento.observaciones}',
-                style: const TextStyle(
-                  color: AppTheme.secondaryText,
-                ),
+                style: const TextStyle(color: AppTheme.secondaryText),
               ),
             ],
             const Divider(height: 24, color: AppTheme.border),
@@ -559,305 +535,287 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     );
   }
 
-  // Construye la pantalla con el selector de vehículo y su historial.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets del módulo de mantenimientos.
+  Widget _mensaje(String texto, {bool error = false}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          texto,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: error ? AppTheme.errorRed : AppTheme.secondaryText,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _construirContenido({
+    required bool esOperador,
+    required List<VehiculoModel> vehiculos,
+  }) {
+    if (vehiculos.isEmpty) {
+      return _mensaje(
+        esOperador
+            ? 'No tienes un vehículo asignado para consultar mantenimientos.'
+            : 'No hay vehículos registrados.',
+      );
+    }
+
+    if (esOperador && vehiculos.length > 1) {
+      return _mensaje(
+        'Tu cuenta tiene más de un vehículo asignado. '
+        'Contacta al administrador para corregirlo.',
+        error: true,
+      );
+    }
+
+    VehiculoModel? vehiculoSeleccionado;
+
+    for (final vehiculo in vehiculos) {
+      if (vehiculo.uid == _vehiculoSeleccionadoUid) {
+        vehiculoSeleccionado = vehiculo;
+        break;
+      }
+    }
+
+    vehiculoSeleccionado ??= vehiculos.first;
+
+    return LayoutBuilder(
+      builder: (context, limites) {
+        final ancho = math.min(limites.maxWidth, 950.0);
+
+        return Center(
+          child: SizedBox(
+            width: ancho,
+            height: limites.maxHeight,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).size.width < 600 ? 88 : 24,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (esOperador)
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Vehículo asignado',
+                        prefixIcon: Icon(Icons.local_shipping_outlined),
+                      ),
+                      child: Text(_nombreVehiculo(vehiculoSeleccionado!)),
+                    )
+                  else
+                    DropdownButtonFormField<String>(
+                      initialValue: vehiculoSeleccionado!.uid,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Vehículo',
+                        prefixIcon: Icon(Icons.local_shipping_outlined),
+                      ),
+                      items: vehiculos.map((vehiculo) {
+                        return DropdownMenuItem<String>(
+                          value: vehiculo.uid,
+                          child: Text(
+                            _nombreVehiculo(vehiculo),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (uid) {
+                        setState(() {
+                          _vehiculoSeleccionadoUid = uid;
+                          _filtroSeleccionado = 'todos';
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: StreamBuilder<List<MantenimientoModel>>(
+                      stream: _viewModel.obtenerMantenimientos(
+                        vehiculoUid: vehiculoSeleccionado.uid,
+                      ),
+                      builder: (context, mantenimientoSnapshot) {
+                        if (mantenimientoSnapshot.hasError) {
+                          return _mensaje(
+                            'No se pudo cargar el historial. '
+                            'Revisa tu conexión o los permisos de tu cuenta.',
+                            error: true,
+                          );
+                        }
+
+                        if (mantenimientoSnapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !mantenimientoSnapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.cfeGreen,
+                            ),
+                          );
+                        }
+
+                        final todos = mantenimientoSnapshot.data ?? [];
+
+                        final filtrados = todos.where((mantenimiento) {
+                          return _filtroSeleccionado == 'todos' ||
+                              mantenimiento.tipoMantenimiento ==
+                                  _filtroSeleccionado;
+                        }).toList();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _mostrarAvisoPreventivo(
+                              vehiculoSeleccionado!,
+                              todos,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Historial de mantenimientos',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: AppTheme.primaryText,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _filtros.map((filtro) {
+                                  final seleccionado =
+                                      _filtroSeleccionado == filtro['valor'];
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(filtro['texto']!),
+                                      selected: seleccionado,
+                                      selectedColor: AppTheme.cfeGreen,
+                                      backgroundColor: AppTheme.roleSurface,
+                                      labelStyle: TextStyle(
+                                        color: seleccionado
+                                            ? AppTheme.pureWhite
+                                            : AppTheme.primaryText,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      onSelected: (_) {
+                                        setState(() {
+                                          _filtroSeleccionado =
+                                              filtro['valor']!;
+                                        });
+                                      },
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: filtrados.isEmpty
+                                  ? _mensaje(
+                                      todos.isEmpty
+                                          ? 'Este vehículo todavía no tiene mantenimientos.'
+                                          : 'No hay registros para este filtro.',
+                                    )
+                                  : ListView.builder(
+                                      itemCount: filtrados.length,
+                                      itemBuilder: (context, index) {
+                                        return _tarjetaMantenimiento(
+                                          filtrados[index],
+                                          vehiculoSeleccionado!,
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<VehiculoModel>>(
-      stream: _vehiculosStream,
-      builder: (context, vehiculosSnapshot) {
-        final cargandoVehiculos =
-            vehiculosSnapshot.connectionState == ConnectionState.waiting;
+    return FutureBuilder<bool>(
+      future: _esOperadorFuture,
+      builder: (context, rolSnapshot) {
+        final esOperador = rolSnapshot.data ?? true;
 
-        final vehiculos = vehiculosSnapshot.data ?? [];
+        return StreamBuilder<List<VehiculoModel>>(
+          stream: _vehiculosStream,
+          builder: (context, vehiculosSnapshot) {
+            final vehiculos = vehiculosSnapshot.data ?? [];
 
-        VehiculoModel? vehiculoSeleccionado;
+            VehiculoModel? vehiculoSeleccionado;
 
-        if (vehiculos.isNotEmpty) {
-          final seleccionados = vehiculos.where(
-            (vehiculo) => vehiculo.uid == _vehiculoSeleccionadoUid,
-          );
+            for (final vehiculo in vehiculos) {
+              if (vehiculo.uid == _vehiculoSeleccionadoUid) {
+                vehiculoSeleccionado = vehiculo;
+                break;
+              }
+            }
 
-          if (seleccionados.isNotEmpty) {
-            vehiculoSeleccionado = seleccionados.first;
-          } else {
-            vehiculoSeleccionado = vehiculos.first;
-            _vehiculoSeleccionadoUid = vehiculoSeleccionado.uid;
-          }
-        }
+            vehiculoSeleccionado ??=
+                vehiculos.length == 1 ? vehiculos.first : null;
 
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              tooltip: 'Regresar',
-              onPressed: _regresar,
-              icon: const Icon(Icons.arrow_back),
-            ),
-            title: const Text('Mantenimientos'),
-          ),
-          floatingActionButton: vehiculoSeleccionado == null
-              ? null
-              : FloatingActionButton.extended(
-                  onPressed: () => _abrirFormulario(
-                    vehiculo: vehiculoSeleccionado!,
-                  ),
-                  backgroundColor: AppTheme.accentYellow,
-                  foregroundColor: Colors.black87,
-                  icon: const Icon(Icons.add),
-                  label: const Text(
-                    'Registrar mantenimiento',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+            return Scaffold(
+              appBar: AppBar(
+                leading: IconButton(
+                  tooltip: 'Regresar',
+                  onPressed: _regresar,
+                  icon: const Icon(Icons.arrow_back),
                 ),
-          body: SafeArea(
-            child: cargandoVehiculos
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : vehiculosSnapshot.hasError
+                title: const Text('Mantenimientos'),
+              ),
+              floatingActionButton: vehiculoSeleccionado == null
+                  ? null
+                  : FloatingActionButton.extended(
+                      onPressed: () => _abrirFormulario(
+                        vehiculo: vehiculoSeleccionado!,
+                      ),
+                      backgroundColor: AppTheme.accentYellow,
+                      foregroundColor: AppTheme.accentText,
+                      icon: const Icon(Icons.add),
+                      label: const Text(
+                        'Registrar mantenimiento',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+              body: SafeArea(
+                child: rolSnapshot.connectionState == ConnectionState.waiting ||
+                        (vehiculosSnapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !vehiculosSnapshot.hasData)
                     ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            'No se pudieron cargar los vehículos. '
-                            'Revisa tu conexión e inténtalo de nuevo.',
-                            textAlign: TextAlign.center,
-                          ),
+                        child: CircularProgressIndicator(
+                          color: AppTheme.cfeGreen,
                         ),
                       )
-                    : vehiculos.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No se encontraron vehículos en la colección '
-                              '"vehiculo" de Firestore.',
-                              textAlign: TextAlign.center,
-                            ),
+                    : vehiculosSnapshot.hasError
+                        ? _mensaje(
+                            'No se pudieron cargar los vehículos. '
+                            'Revisa tu conexión y los permisos de tu cuenta.',
+                            error: true,
                           )
-                        : LayoutBuilder(
-                            builder: (context, limites) {
-                              final ancho = math.min(
-                                limites.maxWidth,
-                                950.0,
-                              );
-
-                              return Center(
-                                child: SizedBox(
-                                  width: ancho,
-                                  height: limites.maxHeight,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      20,
-                                      20,
-                                      20,
-                                      88,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        DropdownButtonFormField<String>(
-                                          value: _vehiculoSeleccionadoUid,
-                                          isExpanded: true,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Vehículo',
-                                            prefixIcon: Icon(
-                                              Icons.local_shipping_outlined,
-                                            ),
-                                          ),
-                                          items: vehiculos.map((vehiculo) {
-                                            return DropdownMenuItem<String>(
-                                              value: vehiculo.uid,
-                                              child: Text(
-                                                _nombreVehiculo(vehiculo),
-                                                overflow:
-                                                    TextOverflow.ellipsis,
-                                              ),
-                                            );
-                                          }).toList(),
-                                          onChanged: (uid) {
-                                            setState(() {
-                                              _vehiculoSeleccionadoUid = uid;
-                                              _filtroSeleccionado = 'todos';
-                                            });
-                                          },
-                                        ),
-                                        const SizedBox(height: 14),
-                                        if (vehiculoSeleccionado != null)
-                                          Expanded(
-                                            child: StreamBuilder<
-                                                List<MantenimientoModel>>(
-                                              stream: _viewModel
-                                                  .obtenerMantenimientos(
-                                                vehiculoUid:
-                                                    vehiculoSeleccionado.uid,
-                                              ),
-                                              builder: (
-                                                context,
-                                                mantenimientoSnapshot,
-                                              ) {
-                                                if (mantenimientoSnapshot
-                                                    .hasError) {
-                                                  return const Center(
-                                                    child: Text(
-                                                      'No se pudo cargar el '
-                                                      'historial.',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                    ),
-                                                  );
-                                                }
-
-                                                if (mantenimientoSnapshot
-                                                            .connectionState ==
-                                                        ConnectionState
-                                                            .waiting &&
-                                                    !mantenimientoSnapshot
-                                                        .hasData) {
-                                                  return const Center(
-                                                    child:
-                                                        CircularProgressIndicator(),
-                                                  );
-                                                }
-
-                                                final todos =
-                                                    mantenimientoSnapshot
-                                                            .data ??
-                                                        [];
-
-                                                final filtrados = todos
-                                                    .where(
-                                                  (mantenimiento) {
-                                                    return _filtroSeleccionado ==
-                                                            'todos' ||
-                                                        mantenimiento
-                                                                .tipoMantenimiento ==
-                                                            _filtroSeleccionado;
-                                                  },
-                                                ).toList();
-
-                                                return Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .stretch,
-                                                  children: [
-                                                    _mostrarAvisoPreventivo(
-                                                      vehiculoSeleccionado!,
-                                                      todos,
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      'Historial de mantenimientos',
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .titleMedium
-                                                          ?.copyWith(
-                                                            color: AppTheme
-                                                                .primaryText,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    SingleChildScrollView(
-                                                      scrollDirection:
-                                                          Axis.horizontal,
-                                                      child: Row(
-                                                        children: _filtros
-                                                            .map((filtro) {
-                                                          final seleccionado =
-                                                              _filtroSeleccionado ==
-                                                                  filtro[
-                                                                      'valor'];
-
-                                                          return Padding(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .only(
-                                                              right: 8,
-                                                            ),
-                                                            child: ChoiceChip(
-                                                              label: Text(
-                                                                filtro[
-                                                                    'texto']!,
-                                                              ),
-                                                              selected:
-                                                                  seleccionado,
-                                                              selectedColor:
-                                                                  AppTheme
-                                                                      .cfeGreen,
-                                                              backgroundColor:
-                                                                  AppTheme
-                                                                      .roleSurface,
-                                                              labelStyle:
-                                                                  TextStyle(
-                                                                color: seleccionado
-                                                                    ? AppTheme
-                                                                        .pureWhite
-                                                                    : AppTheme
-                                                                        .primaryText,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                              onSelected: (_) {
-                                                                setState(() {
-                                                                  _filtroSeleccionado =
-                                                                      filtro[
-                                                                          'valor']!;
-                                                                });
-                                                              },
-                                                            ),
-                                                          );
-                                                        }).toList(),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Expanded(
-                                                      child: filtrados.isEmpty
-                                                          ? Center(
-                                                              child: Text(
-                                                                todos.isEmpty
-                                                                    ? 'Este vehículo todavía no tiene mantenimientos.'
-                                                                    : 'No hay registros para este filtro.',
-                                                                textAlign:
-                                                                    TextAlign
-                                                                        .center,
-                                                                style:
-                                                                    const TextStyle(
-                                                                  color: AppTheme
-                                                                      .secondaryText,
-                                                                ),
-                                                              ),
-                                                            )
-                                                          : ListView.builder(
-                                                              itemCount:
-                                                                  filtrados
-                                                                      .length,
-                                                              itemBuilder:
-                                                                  (context,
-                                                                      index) {
-                                                                return _tarjetaMantenimiento(
-                                                                  filtrados[
-                                                                      index],
-                                                                  vehiculoSeleccionado!,
-                                                                );
-                                                              },
-                                                            ),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+                        : _construirContenido(
+                            esOperador: esOperador,
+                            vehiculos: vehiculos,
                           ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

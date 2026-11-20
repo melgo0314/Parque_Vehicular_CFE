@@ -303,7 +303,7 @@ class _FormInventarioViewState extends State<FormInventarioView> {
                         children: [
                           _etiqueta('Vehículo'),
                           DropdownButtonFormField<String>(
-                            value: _vehiculoSeleccionado?.uid,
+                            initialValue: _vehiculoSeleccionado?.uid,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               prefixIcon: Icon(
@@ -345,7 +345,7 @@ class _FormInventarioViewState extends State<FormInventarioView> {
 
                           _etiqueta('Artículo'),
                           DropdownButtonFormField<String>(
-                            value: articulos.any(
+                            initialValue: articulos.any(
                               (articulo) => articulo.uid == _articuloUid,
                             )
                                 ? _articuloUid

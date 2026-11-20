@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,77 +7,61 @@ import '../models/kilometraje_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/kilometraje_viewmodel.dart';
 
-// Formulario para registrar una lectura de kilometraje.
+// Formulario para iniciar, finalizar o editar una jornada.
 class FormKilometrajeView extends StatefulWidget {
-  // Vehículos disponibles para seleccionar.
   final List<VehiculoModel> vehiculos;
-
-  // Identificador inicial del vehículo seleccionado, si se proporciona.
   final String? vehiculoUidInicial;
+  final KilometrajeModel? registro;
 
-  // Crea el formulario con los vehículos disponibles.
-  // Entradas: key opcional, lista vehiculos requerida y vehiculoUidInicial opcional.
-  // Salida: una instancia de FormKilometrajeView.
   const FormKilometrajeView({
     super.key,
     required this.vehiculos,
     this.vehiculoUidInicial,
+    this.registro,
   });
 
-  // Crea el estado asociado al formulario.
-  // Entrada: ninguna.
-  // Salida: el estado que administra la captura del kilometraje.
   @override
   State<FormKilometrajeView> createState() => _FormKilometrajeViewState();
 }
 
-// Estado y comportamiento del formulario de kilometraje.
 class _FormKilometrajeViewState extends State<FormKilometrajeView> {
-  // Llave global para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
-
-  // ViewModel que consulta y registra lecturas de kilometraje.
   final _viewModel = KilometrajeViewModel();
 
-  // Controlador para el kilometraje ingresado.
   final _kilometrajeController = TextEditingController();
-
-  // Controlador para las observaciones del registro.
   final _observacionesController = TextEditingController();
 
-  // Suscripción a los registros del vehículo seleccionado.
   StreamSubscription<List<KilometrajeModel>>? _suscripcionRegistros;
 
-  // Identificador del vehículo seleccionado.
   String? _vehiculoUid;
-
-  // Fecha elegida para el registro.
   DateTime _fecha = DateTime.now();
 
-  // Última lectura conocida del vehículo seleccionado.
   int _ultimoKilometraje = 0;
 
-  // Indica si se está consultando el último kilometraje.
   bool _cargandoKilometraje = false;
-
-  // Indica si se está guardando el registro.
   bool _guardando = false;
-
-  // Indica si el usuario ya intentó guardar el formulario.
   bool _intentoGuardar = false;
 
-  // Devuelve los vehículos que tienen un identificador válido.
-  // Entrada: ninguna; consulta la lista recibida por el widget.
-  // Salida: lista de vehículos con uid no vacío.
+  bool get _estaIniciando => widget.registro == null;
+
+  bool get _estaFinalizando {
+    return widget.registro != null &&
+        widget.registro!.kilometrajeFinal == null;
+  }
+
+  bool get _estaEditando {
+    return widget.registro != null &&
+        widget.registro!.kilometrajeFinal != null;
+  }
+
+  // Vehículos con identificador válido.
   List<VehiculoModel> get _vehiculosDisponibles {
     return widget.vehiculos
         .where((vehiculo) => vehiculo.uid.trim().isNotEmpty)
         .toList();
   }
 
-  // Busca el vehículo seleccionado actualmente.
-  // Entrada: ninguna; utiliza el uid guardado en el estado.
-  // Salida: vehículo seleccionado o null si no se encuentra.
+  // Vehículo seleccionado.
   VehiculoModel? get _vehiculoSeleccionado {
     for (final vehiculo in _vehiculosDisponibles) {
       if (vehiculo.uid == _vehiculoUid) {
@@ -87,30 +72,39 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     return null;
   }
 
-  // Inicializa el vehículo seleccionado y consulta su última lectura.
-  // Entrada: ninguna.
-  // Salida: ninguna; configura el estado inicial del formulario.
   @override
   void initState() {
     super.initState();
 
-    if (_vehiculosDisponibles.isNotEmpty) {
+    if (widget.registro != null) {
+      final registro = widget.registro!;
+
+      _vehiculoUid = registro.vehiculoUid;
+      _fecha = registro.fecha;
+      _ultimoKilometraje = registro.kilometrajeIni;
+
+      _kilometrajeController.text =
+          registro.kilometrajeFinal?.toString() ?? '';
+
+      _observacionesController.text = registro.observaciones;
+    } else if (_vehiculosDisponibles.isNotEmpty) {
       final uidInicial = widget.vehiculoUidInicial;
 
       if (uidInicial != null &&
-          _vehiculosDisponibles.any((vehiculo) => vehiculo.uid == uidInicial)) {
+          _vehiculosDisponibles.any(
+            (vehiculo) => vehiculo.uid == uidInicial,
+          )) {
         _vehiculoUid = uidInicial;
       } else {
         _vehiculoUid = _vehiculosDisponibles.first.uid;
       }
+    }
 
+    if (_estaIniciando && _vehiculoSeleccionado != null) {
       _escucharUltimoKilometraje();
     }
   }
 
-  // Cancela la suscripción y libera los controladores y el ViewModel.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   @override
   void dispose() {
     _suscripcionRegistros?.cancel();
@@ -120,32 +114,32 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     super.dispose();
   }
 
-  // Escucha los registros del vehículo y obtiene la lectura más reciente.
-  // Entrada: ninguna; utiliza el vehículo seleccionado.
-  // Salida: ninguna; actualiza _ultimoKilometraje y el estado de carga.
+  // Consulta la última lectura de una jornada finalizada.
   void _escucharUltimoKilometraje() {
     _suscripcionRegistros?.cancel();
 
     final vehiculo = _vehiculoSeleccionado;
-
     if (vehiculo == null) return;
 
     setState(() {
       _cargandoKilometraje = true;
-      _ultimoKilometraje = vehiculo.kilometrajeActual;
     });
 
     _suscripcionRegistros = _viewModel
         .obtenerRegistros(vehiculoUid: vehiculo.uid)
         .listen(
       (registros) {
-        registros.sort((a, b) => b.fecha.compareTo(a.fecha));
+        final finalizados = registros.where((registro) {
+          return registro.kilometrajeFinal != null;
+        }).toList();
+
+        finalizados.sort((a, b) => b.fecha.compareTo(a.fecha));
 
         int ultimo = vehiculo.kilometrajeActual;
 
-        if (registros.isNotEmpty &&
-            registros.first.kilometrajeFinal > ultimo) {
-          ultimo = registros.first.kilometrajeFinal;
+        if (finalizados.isNotEmpty &&
+            finalizados.first.kilometrajeFinal! > ultimo) {
+          ultimo = finalizados.first.kilometrajeFinal!;
         }
 
         if (!mounted) return;
@@ -153,6 +147,11 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
         setState(() {
           _ultimoKilometraje = ultimo;
           _cargandoKilometraje = false;
+
+          // Se coloca la última lectura como sugerencia inicial.
+          if (_kilometrajeController.text.isEmpty) {
+            _kilometrajeController.text = ultimo.toString();
+          }
         });
       },
       onError: (_) {
@@ -165,53 +164,21 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     );
   }
 
-  // Abre el selector para elegir la fecha del registro.
-  // Entrada: ninguna.
-  // Salida: ninguna; actualiza _fecha cuando se selecciona una fecha.
-  Future<void> _seleccionarFecha() async {
-    final fechaSeleccionada = await showDatePicker(
-      context: context,
-      initialDate: _fecha,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      helpText: 'Selecciona la fecha del registro',
-      cancelText: 'Cancelar',
-      confirmText: 'Aceptar',
-    );
-
-    if (fechaSeleccionada != null && mounted) {
-      setState(() {
-        _fecha = fechaSeleccionada;
-      });
-    }
-  }
-
-  // Da formato a una fecha para mostrarla en el formulario.
-  // Entrada: fecha que se desea presentar.
-  // Salida: texto con día, mes abreviado y año.
+  // Da formato a una fecha.
   String _formatearFecha(DateTime fecha) {
     const meses = [
-      'ene',
-      'feb',
-      'mar',
-      'abr',
-      'may',
-      'jun',
-      'jul',
-      'ago',
-      'sep',
-      'oct',
-      'nov',
-      'dic',
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
     ];
 
     final dia = fecha.day.toString().padLeft(2, '0');
-    return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
+    final hora = fecha.hour.toString().padLeft(2, '0');
+    final minuto = fecha.minute.toString().padLeft(2, '0');
+
+    return '$dia ${meses[fecha.month - 1]} ${fecha.year} · $hora:$minuto';
   }
 
-  // Valida que el kilometraje sea entero y mayor que la última lectura.
-  // Entrada: valor escrito en el campo de kilometraje.
-  // Salida: mensaje de error si no es válido; de lo contrario, null.
+  // Valida la lectura que se está capturando.
   String? _validarKilometraje(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Ingresa el kilometraje.';
@@ -223,54 +190,85 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
       return 'Ingresa un kilometraje válido.';
     }
 
-    if (kilometraje <= _ultimoKilometraje) {
-      return 'El kilometraje debe ser mayor al último registro '
+    if (_estaIniciando && kilometraje < _ultimoKilometraje) {
+      return 'El kilometraje no puede ser menor a la última lectura '
+          '(${_formatearNumero(_ultimoKilometraje)} km).';
+    }
+
+    if (!_estaIniciando && kilometraje <= _ultimoKilometraje) {
+      return 'El kilometraje final debe ser mayor a la lectura inicial '
           '(${_formatearNumero(_ultimoKilometraje)} km).';
     }
 
     return null;
   }
 
-  // Valida y guarda un nuevo registro de kilometraje.
-  // Entrada: ninguna; utiliza el vehículo y los valores del formulario.
-  // Salida: ninguna; guarda el registro y cierra el formulario si tiene éxito.
+  // Guarda el inicio, finalización o modificación de una jornada.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
-    // Después del primer intento, muestra la validación mientras se corrigen
-    // los campos del formulario.
     setState(() {
       _intentoGuardar = true;
     });
 
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final vehiculo = _vehiculoSeleccionado;
-    final kilometrajeFinal = int.tryParse(
+    final kilometraje = int.tryParse(
       _kilometrajeController.text.trim(),
     );
 
-    if (vehiculo == null || kilometrajeFinal == null) {
-      _mostrarMensaje('Selecciona un vehículo e ingresa el kilometraje.');
-      return;
-    }
-
-    final registro = KilometrajeModel(
-      uid: '',
-      vehiculoUid: vehiculo.uid,
-      // El repositorio obtiene el RPE de la sesión iniciada.
-      rpeUsuario: '',
-      fecha: _fecha,
-      kilometrajeIni: _ultimoKilometraje,
-      kilometrajeFinal: kilometrajeFinal,
-      observaciones: _observacionesController.text.trim(),
-    );
+    if (kilometraje == null) return;
 
     setState(() {
       _guardando = true;
     });
 
-    final guardado = await _viewModel.registrarKilometraje(registro);
+    bool guardado = false;
+
+    if (_estaIniciando) {
+      final vehiculo = _vehiculoSeleccionado;
+
+      if (vehiculo == null) {
+        _mostrarMensaje('Selecciona un vehículo.');
+        setState(() => _guardando = false);
+        return;
+      }
+
+      final registro = KilometrajeModel(
+        uid: '',
+        vehiculoUid: vehiculo.uid,
+        rpeUsuario: '',
+        fecha: DateTime.now(),
+        kilometrajeIni: kilometraje,
+        kilometrajeFinal: null,
+        observaciones: _observacionesController.text.trim(),
+      );
+
+      guardado = await _viewModel.registrarKilometraje(registro);
+    } else if (_estaFinalizando) {
+      final registro = widget.registro!;
+
+      guardado = await _viewModel.finalizarKilometraje(
+        uid: registro.uid,
+        kilometrajeFinal: kilometraje,
+        observaciones: _observacionesController.text.trim(),
+      );
+    } else if (_estaEditando) {
+      final original = widget.registro!;
+
+      final registro = KilometrajeModel(
+        uid: original.uid,
+        vehiculoUid: original.vehiculoUid,
+        rpeUsuario: original.rpeUsuario,
+        fecha: original.fecha,
+        fechaFin: original.fechaFin ?? DateTime.now(),
+        kilometrajeIni: original.kilometrajeIni,
+        kilometrajeFinal: kilometraje,
+        observaciones: _observacionesController.text.trim(),
+      );
+
+      guardado = await _viewModel.actualizarKilometraje(registro);
+    }
 
     if (!mounted) return;
 
@@ -280,7 +278,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
 
     if (!guardado) {
       _mostrarMensaje(
-        _viewModel.mensajeError ?? 'No se pudo guardar el registro.',
+        _viewModel.mensajeError ?? 'No se pudo guardar la jornada.',
       );
       return;
     }
@@ -288,9 +286,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     Navigator.of(context).pop(true);
   }
 
-  // Muestra un mensaje flotante en la pantalla.
-  // Entrada: mensaje que se presentará.
-  // Salida: ninguna; muestra un SnackBar con el estilo de error.
+  // Muestra mensajes de error.
   void _mostrarMensaje(String mensaje) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -303,9 +299,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
       );
   }
 
-  // Da formato a un kilometraje agregando separadores de miles.
-  // Entrada: numero que se desea presentar.
-  // Salida: número con comas para separar los millares.
+  // Formatea números con separadores de miles.
   String _formatearNumero(int numero) {
     return numero.toString().replaceAllMapped(
           RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -313,9 +307,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
         );
   }
 
-  // Construye el mensaje que se muestra si no hay vehículos disponibles.
-  // Entrada: ninguna.
-  // Salida: un widget informativo para el estado vacío.
+  // Muestra el formulario sin vehículos.
   Widget _vistaSinVehiculos() {
     return const Center(
       child: Padding(
@@ -328,10 +320,21 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     );
   }
 
-  // Construye los campos y controles del formulario.
-  // Entrada: ninguna; utiliza los datos y el estado actuales.
-  // Salida: un widget Form con los campos del registro.
+  // Construye los campos del formulario.
   Widget _contenidoFormulario() {
+
+    final tituloKilometraje = _estaIniciando
+        ? 'Kilometraje inicial'
+        : 'Kilometraje final';
+
+    final tituloBoton = _guardando
+        ? 'Guardando…'
+        : _estaIniciando
+            ? 'Registrar Kilometraje'
+            : _estaFinalizando
+                ? 'Finalizar Kilometraje'
+                : 'Guardar cambios';
+
     return Form(
       key: _formKey,
       autovalidateMode: _intentoGuardar
@@ -341,7 +344,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Datos del registro',
+            'Datos de la jornada',
             style: TextStyle(
               color: AppTheme.primaryText,
               fontSize: 20,
@@ -349,6 +352,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             ),
           ),
           const SizedBox(height: 20),
+
           const Text(
             'Vehículo',
             style: TextStyle(
@@ -357,8 +361,9 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             ),
           ),
           const SizedBox(height: 6),
+
           DropdownButtonFormField<String>(
-            value: _vehiculoUid,
+            initialValue: _vehiculoUid,
             isExpanded: true,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.local_shipping_outlined),
@@ -374,7 +379,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
                 ),
               );
             }).toList(),
-            onChanged: _guardando
+            onChanged: _guardando || !_estaIniciando
                 ? null
                 : (valor) {
                     if (valor == null) return;
@@ -393,34 +398,62 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
               return null;
             },
           ),
+
           const SizedBox(height: 16),
+
           const Text(
-            'Fecha',
+            'Fecha de inicio',
             style: TextStyle(
               color: AppTheme.primaryText,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
-          InkWell(
-            onTap: _guardando ? null : _seleccionarFecha,
-            borderRadius: BorderRadius.circular(12),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                suffixIcon: Icon(Icons.calendar_month_outlined),
+
+          InputDecorator(
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.calendar_month_outlined),
+            ),
+            child: Text(
+              _estaIniciando
+                  ? _formatearFecha(DateTime.now())
+                  : _formatearFecha(_fecha),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          if (!_estaIniciando) ...[
+            const Text(
+              'Kilometraje inicial',
+              style: TextStyle(
+                color: AppTheme.primaryText,
+                fontWeight: FontWeight.w600,
               ),
-              child: Text(_formatearFecha(_fecha)),
             ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Kilometraje',
-            style: TextStyle(
+            const SizedBox(height: 6),
+            InputDecorator(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.speed_outlined),
+                suffixText: 'km',
+              ),
+              child: Text(
+                '${_formatearNumero(_ultimoKilometraje)} km',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          Text(
+            tituloKilometraje,
+            style: const TextStyle(
               color: AppTheme.primaryText,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
+
           TextFormField(
             controller: _kilometrajeController,
             enabled: !_guardando && !_cargandoKilometraje,
@@ -429,24 +462,36 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
             ],
-            decoration: const InputDecoration(
-              hintText: 'Ingresa la lectura actual',
+            decoration: InputDecoration(
+              hintText: _estaIniciando
+                  ? 'Ingresa la lectura al iniciar'
+                  : 'Ingresa la lectura al finalizar',
               suffixText: 'km',
             ),
             validator: _validarKilometraje,
           ),
+
           const SizedBox(height: 6),
+
           Text(
             _cargandoKilometraje
                 ? 'Consultando el último kilometraje...'
-                : 'Último registro: '
-                    '${_formatearNumero(_ultimoKilometraje)} km',
+                : _estaIniciando
+                    ? 'Última lectura registrada: '
+                        '${_formatearNumero(_ultimoKilometraje)} km'
+                    : 'Distancia recorrida: '
+                        '${_formatearNumero(
+                            (int.tryParse(_kilometrajeController.text) ?? 0) -
+                                _ultimoKilometraje,
+                          )} km',
             style: const TextStyle(
               color: AppTheme.secondaryText,
               fontSize: 13,
             ),
           ),
+
           const SizedBox(height: 16),
+
           TextFormField(
             controller: _observacionesController,
             enabled: !_guardando,
@@ -454,17 +499,47 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             maxLines: 4,
             maxLength: 250,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Observaciones (opcional)',
-              hintText: 'Ej. Inicio de turno',
+              hintText: _estaIniciando
+                  ? 'Ej. Inicio de jornada'
+                  : 'Ej. Fin de jornada',
               alignLabelWithHint: true,
             ),
           ),
+
+          if (_estaFinalizando) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.roleSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.cfeGreen),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Al finalizar, se actualizará el kilometraje actual '
+                      'del vehículo.',
+                      style: TextStyle(color: AppTheme.primaryText),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 20),
+
           SizedBox(
             height: 56,
             child: FilledButton.icon(
-              onPressed: _guardando || _cargandoKilometraje ? null : _guardar,
+              onPressed: _guardando || _cargandoKilometraje
+                  ? null
+                  : _guardar,
               icon: _guardando
                   ? const SizedBox(
                       width: 20,
@@ -474,13 +549,22 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
                         color: AppTheme.pureWhite,
                       ),
                     )
-                  : const Icon(Icons.check),
+                  : Icon(
+                      _estaIniciando
+                          ? Icons.play_arrow
+                          : _estaFinalizando
+                              ? Icons.flag_outlined
+                              : Icons.check,
+                    ),
               label: Text(
-                _guardando ? 'Guardando…' : 'Guardar registro',
+                tituloBoton,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ),
+
           const SizedBox(height: 10),
+
           SizedBox(
             height: 52,
             child: OutlinedButton(
@@ -494,22 +578,23 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     );
   }
 
-  // Construye la pantalla del formulario o el estado sin vehículos.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets para registrar el kilometraje.
   @override
   Widget build(BuildContext context) {
+    final titulo = _estaIniciando
+        ? 'Iniciar Kilometraje'
+        : _estaFinalizando
+            ? 'Finalizar Kilometraje'
+            : 'Editar kilometraje';
+
     if (_vehiculosDisponibles.isEmpty) {
       return Scaffold(
         backgroundColor: AppTheme.pearlWhite,
         appBar: AppBar(
           backgroundColor: AppTheme.cfeGreen,
           foregroundColor: AppTheme.pureWhite,
-          title: const Text('Registrar kilometraje'),
+          title: Text(titulo),
         ),
-        body: SafeArea(
-          child: _vistaSinVehiculos(),
-        ),
+        body: SafeArea(child: _vistaSinVehiculos()),
       );
     }
 
@@ -518,9 +603,9 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
         foregroundColor: AppTheme.pureWhite,
-        title: const Text(
-          'Registrar kilometraje',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          titulo,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(

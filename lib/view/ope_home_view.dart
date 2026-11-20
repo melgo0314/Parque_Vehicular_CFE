@@ -1,20 +1,58 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:p_vehicular/core/routes/app_routes.dart';
+
+import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
 import '../models/vehiculos_model.dart';
+import '../viewmodel/notificacion_viewmodel.dart';
+import 'form_vehiculo_view.dart';
 
-// Pantalla principal para usuarios con rol de operador.
-class OpeHomeView extends StatelessWidget {
-  // Crea la pantalla principal del operador.
-  // Entrada: key opcional para identificar el widget.
-  // Salida: una instancia de OpeHomeView.
+class OpeHomeView extends StatefulWidget {
   const OpeHomeView({super.key});
 
-  // Obtiene en tiempo real el documento del usuario autenticado.
-  // Entrada: ninguna; utiliza la sesión actual de Firebase Authentication.
-  // Salida: flujo con el documento del usuario o vacío si no hay sesión.
+  @override
+  State<OpeHomeView> createState() => _OpeHomeViewState();
+}
+
+class _OpeHomeViewState extends State<OpeHomeView> {
+  final NotificacionViewmodel _notificacionViewmodel =
+      NotificacionViewmodel();
+
+  @override
+  void initState() {
+    super.initState();
+
+    _notificacionViewmodel.addListener(_actualizarContador);
+    _notificacionViewmodel.obtenerNotificaciones();
+  }
+
+  @override
+  void dispose() {
+    _notificacionViewmodel.removeListener(_actualizarContador);
+    _notificacionViewmodel.dispose();
+
+    super.dispose();
+  }
+
+  void _actualizarContador() {
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
+  void _abrirNotificaciones(BuildContext context) {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.notificaciones,
+    ).then((_) {
+      if (mounted) {
+        _notificacionViewmodel.obtenerNotificaciones();
+      }
+    });
+  }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> _obtenerUsuario() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -28,9 +66,6 @@ class OpeHomeView extends StatelessWidget {
         .snapshots();
   }
 
-  // Obtiene los vehículos asignados al usuario autenticado.
-  // Entrada: ninguna; utiliza el identificador del usuario actual.
-  // Salida: flujo con los vehículos asignados o vacío si no hay sesión.
   Stream<QuerySnapshot<Map<String, dynamic>>> _obtenerVehiculoAsignado() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -45,10 +80,7 @@ class OpeHomeView extends StatelessWidget {
         .snapshots();
   }
 
-  // Cierra la sesión y redirige a la pantalla de inicio de sesión.
-  // Entrada: context de la pantalla actual.
-  // Salida: ninguna; navega al inicio de sesión o muestra un mensaje si falla.
-  Future<void> _logout(BuildContext context) async {
+  Future<void> _cerrarSesion(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
 
@@ -71,9 +103,6 @@ class OpeHomeView extends StatelessWidget {
     }
   }
 
-  // Construye la pantalla con la unidad asignada, acciones y módulos.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets de la pantalla principal del operador.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,80 +112,74 @@ class OpeHomeView extends StatelessWidget {
           children: [
             _encabezado(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: _obtenerVehiculoAsignado(),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return _tarjetaMensajeUnidad(
-                            'No se pudo consultar tu unidad. Intenta de nuevo.',
-                            icono: Icons.error_outline,
-                          );
-                        }
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: _obtenerVehiculoAsignado(),
+                builder: (context, snapshot) {
+                  VehiculoModel? vehiculo;
+                  String? mensajeUnidad;
 
-                        if (snapshot.connectionState ==
+                  if (snapshot.hasError) {
+                    mensajeUnidad =
+                        'No se pudo consultar tu unidad. Intenta de nuevo.';
+                  } else if (snapshot.hasData) {
+                    final documentos = snapshot.data!.docs;
+
+                    if (documentos.length == 1) {
+                      final documento = documentos.first;
+                      vehiculo = VehiculoModel.fromMap(
+                        documento.data(),
+                        documento.id,
+                      );
+                    } else if (documentos.isEmpty) {
+                      mensajeUnidad =
+                          'Aún no tienes un vehículo asignado. '
+                          'Solicita al administrador que registre la asignación.';
+                    } else {
+                      mensajeUnidad =
+                          'Hay más de un vehículo asignado a tu cuenta. '
+                          'Contacta al administrador para corregirlo.';
+                    }
+                  }
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (vehiculo != null)
+                          _tarjetaUnidadAsignada(context, vehiculo)
+                        else if (snapshot.connectionState ==
                                 ConnectionState.waiting &&
-                            !snapshot.hasData) {
-                          return _tarjetaCargandoUnidad();
-                        }
-
-                        final documentos = snapshot.data?.docs ?? [];
-
-                        if (documentos.isEmpty) {
-                          return _tarjetaMensajeUnidad(
-                            'Aún no tienes un vehículo asignado. '
-                            'Solicita al administrador que registre la asignación.',
+                            !snapshot.hasError)
+                          _tarjetaCargandoUnidad()
+                        else
+                          _tarjetaMensajeUnidad(
+                            mensajeUnidad ?? 'No hay una unidad disponible.',
                             icono: Icons.local_shipping_outlined,
-                          );
-                        }
-
-                        if (documentos.length > 1) {
-                          return _tarjetaMensajeUnidad(
-                            'Hay más de un vehículo asignado a tu cuenta. '
-                            'Contacta al administrador para corregirlo.',
-                            icono: Icons.warning_amber_outlined,
-                          );
-                        }
-
-                        final documento = documentos.first;
-                        final vehiculo = VehiculoModel.fromMap(
-                          documento.data(),
-                          documento.id,
-                        );
-
-                        return _tarjetaUnidadAsignada(vehiculo);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: _obtenerVehiculoAsignado(),
-                      builder: (context, snapshot) {
-                        final tieneVehiculo =
-                            snapshot.hasData && snapshot.data!.docs.length == 1;
-
-                        return _accionesRapidas(
+                          ),
+                        const SizedBox(height: 16),
+                        _accionesRapidas(
                           context,
-                          habilitadas: tieneVehiculo,
-                        );
-                      },
+                          vehiculo: vehiculo,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Módulos',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryText,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _modulos(
+                          context,
+                          vehiculo: vehiculo,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Módulos',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryText,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _modulos(context),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -165,9 +188,6 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  // Construye el encabezado con el nombre y el rol del usuario.
-  // Entrada: context de la pantalla actual.
-  // Salida: un widget con identidad del sistema, notificaciones y cierre de sesión.
   Widget _encabezado(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -203,19 +223,62 @@ class OpeHomeView extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                tooltip: 'Notificaciones',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
-                icon: const Icon(
-                  Icons.notifications_none_outlined,
-                  color: AppTheme.pureWhite,
-                  size: 28,
-                ),
-                onPressed: () {},
+
+              // Campanita con contador de notificaciones no leídas.
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    tooltip: 'Notificaciones',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    icon: const Icon(
+                      Icons.notifications_none,
+                      color: AppTheme.pureWhite,
+                      size: 26,
+                    ),
+                    onPressed: () => _abrirNotificaciones(context),
+                  ),
+
+                  if (_notificacionViewmodel.totalNoLeidas > 0)
+                    Positioned(
+                      right: 5,
+                      top: 3,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorRed,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppTheme.pureWhite,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          _notificacionViewmodel.totalNoLeidas > 99
+                              ? '99+'
+                              : '${_notificacionViewmodel.totalNoLeidas}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppTheme.pureWhite,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
+
               IconButton(
                 tooltip: 'Cerrar sesión',
                 constraints: const BoxConstraints(
@@ -227,7 +290,7 @@ class OpeHomeView extends StatelessWidget {
                   color: AppTheme.pureWhite,
                   size: 24,
                 ),
-                onPressed: () => _logout(context),
+                onPressed: () => _cerrarSesion(context),
               ),
             ],
           ),
@@ -303,111 +366,140 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  // Construye la tarjeta con los datos del vehículo asignado.
-  // Entrada: vehiculo cuyos datos se mostrarán.
-  // Salida: tarjeta con descripción, placas, número económico y kilometraje.
-  Widget _tarjetaUnidadAsignada(VehiculoModel vehiculo) {
+  Widget _tarjetaUnidadAsignada(
+    BuildContext context,
+    VehiculoModel vehiculo,
+  ) {
     final descripcion =
         '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
 
     return Card(
       color: AppTheme.pureWhite,
       elevation: 0,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: AppTheme.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'MI UNIDAD ASIGNADA',
-              style: TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FormVehiculoView(
+                vehiculo: vehiculo,
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.avatarSurface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.local_shipping_outlined,
-                    color: AppTheme.cfeGreen,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        descripcion.isEmpty ? 'Vehículo' : descripcion,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryText,
-                        ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'MI UNIDAD ASIGNADA',
+                      style: TextStyle(
+                        color: AppTheme.secondaryText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${vehiculo.placas} • ${vehiculo.numeroEconomico}',
-                        style: const TextStyle(
-                          color: AppTheme.secondaryText,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Icon(
-                  Icons.speed,
-                  color: AppTheme.secondaryText,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${vehiculo.kilometrajeActual} km',
-                  style: const TextStyle(
-                    color: AppTheme.primaryText,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  vehiculo.estadoOperativo,
-                  style: const TextStyle(
+                  const Icon(
+                    Icons.edit_outlined,
                     color: AppTheme.secondaryText,
-                    fontWeight: FontWeight.w600,
+                    size: 18,
                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.avatarSurface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.local_shipping_outlined,
+                      color: AppTheme.cfeGreen,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          descripcion.isEmpty ? 'Vehículo' : descripcion,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryText,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${vehiculo.placas} • ${vehiculo.numeroEconomico}',
+                          style: const TextStyle(
+                            color: AppTheme.secondaryText,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.speed,
+                    color: AppTheme.secondaryText,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${vehiculo.kilometrajeActual} km',
+                    style: const TextStyle(
+                      color: AppTheme.primaryText,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    vehiculo.estadoOperativo,
+                    style: const TextStyle(
+                      color: AppTheme.secondaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Toca aquí para editar la información de tu unidad.',
+                style: TextStyle(
+                  color: AppTheme.secondaryText,
+                  fontSize: 12,
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Construye una tarjeta para informar el estado de la unidad.
-  // Entradas: mensaje que se presentará e icono que lo acompañará.
-  // Salida: una tarjeta con el mensaje indicado.
   Widget _tarjetaMensajeUnidad(
     String mensaje, {
     required IconData icono,
@@ -428,7 +520,9 @@ class OpeHomeView extends StatelessWidget {
             Expanded(
               child: Text(
                 mensaje,
-                style: const TextStyle(color: AppTheme.secondaryText),
+                style: const TextStyle(
+                  color: AppTheme.secondaryText,
+                ),
               ),
             ),
           ],
@@ -437,9 +531,6 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  // Construye la tarjeta que se muestra mientras se consulta la unidad.
-  // Entrada: ninguna.
-  // Salida: una tarjeta con un indicador de progreso.
   Widget _tarjetaCargandoUnidad() {
     return Card(
       color: AppTheme.pureWhite,
@@ -451,19 +542,20 @@ class OpeHomeView extends StatelessWidget {
       child: const Padding(
         padding: EdgeInsets.all(24),
         child: Center(
-          child: CircularProgressIndicator(color: AppTheme.cfeGreen),
+          child: CircularProgressIndicator(
+            color: AppTheme.cfeGreen,
+          ),
         ),
       ),
     );
   }
 
-  // Construye las acciones rápidas para registrar combustible o kilometraje.
-  // Entradas: context de navegación y habilitadas según la asignación del vehículo.
-  // Salida: una fila con los botones de acción rápida.
   Widget _accionesRapidas(
     BuildContext context, {
-    required bool habilitadas,
+    required VehiculoModel? vehiculo,
   }) {
+    final habilitadas = vehiculo != null;
+
     return Row(
       children: [
         Expanded(
@@ -474,7 +566,11 @@ class OpeHomeView extends StatelessWidget {
             colorTexto: AppTheme.accentText,
             habilitado: habilitadas,
             alTocar: () {
-              Navigator.pushNamed(context, AppRoutes.combustible);
+              Navigator.pushNamed(
+                context,
+                AppRoutes.combustible,
+                arguments: vehiculo,
+              );
             },
           ),
         ),
@@ -487,7 +583,11 @@ class OpeHomeView extends StatelessWidget {
             colorTexto: AppTheme.pureWhite,
             habilitado: habilitadas,
             alTocar: () {
-              Navigator.pushNamed(context, AppRoutes.kilometraje);
+              Navigator.pushNamed(
+                context,
+                AppRoutes.kilometraje,
+                arguments: vehiculo,
+              );
             },
           ),
         ),
@@ -495,9 +595,6 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  // Construye un botón de acción rápida con su estilo y comportamiento.
-  // Entradas: etiqueta, icono, colores, estado habilitado y función alTocar.
-  // Salida: un botón táctil para ejecutar la acción indicada.
   Widget _botonAccionRapida({
     required String etiqueta,
     required IconData icono,
@@ -542,10 +639,12 @@ class OpeHomeView extends StatelessWidget {
     );
   }
 
-  // Construye la cuadrícula de módulos disponibles para el operador.
-  // Entrada: context de navegación.
-  // Salida: cuadrícula con accesos a vehículos, mantenimientos e información.
-  Widget _modulos(BuildContext context) {
+  Widget _modulos(
+    BuildContext context, {
+    required VehiculoModel? vehiculo,
+  }) {
+    final habilitados = vehiculo != null;
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -555,42 +654,56 @@ class OpeHomeView extends StatelessWidget {
       childAspectRatio: 2.1,
       children: [
         _tarjetaModulo(
-          'Vehículos',
-          Icons.local_shipping_outlined,
-          () => Navigator.pushNamed(context, AppRoutes.vehiculos),
-        ),
-        _tarjetaModulo(
           'Mantenimientos',
           Icons.build_circle_outlined,
-          () => Navigator.pushNamed(context, AppRoutes.mantenimiento),
+          habilitado: habilitados,
+          alTocar: () {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.mantenimiento,
+              arguments: vehiculo,
+            );
+          },
         ),
         _tarjetaModulo(
           'Inventario',
           Icons.inventory_2_outlined,
-          () => Navigator.pushNamed(context, AppRoutes.inventario),
+          habilitado: habilitados,
+          alTocar: () {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.inventario,
+              arguments: vehiculo,
+            );
+          },
         ),
         _tarjetaModulo(
           'Expedientes',
           Icons.folder_open_outlined,
-          () {},
+          habilitado: habilitados,
+          alTocar: () {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.expediente,
+              arguments: vehiculo,
+            );
+          },
         ),
       ],
     );
   }
 
-  // Construye una tarjeta de acceso a un módulo.
-  // Entradas: titulo del módulo, icono y función alTocar.
-  // Salida: una tarjeta que ejecuta la acción indicada al tocarla.
   Widget _tarjetaModulo(
     String titulo,
-    IconData icono,
-    VoidCallback alTocar,
-  ) {
+    IconData icono, {
+    required bool habilitado,
+    required VoidCallback alTocar,
+  }) {
     return Material(
-      color: AppTheme.pureWhite,
+      color: habilitado ? AppTheme.pureWhite : AppTheme.border,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: alTocar,
+        onTap: habilitado ? alTocar : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(
@@ -605,17 +718,25 @@ class OpeHomeView extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icono, color: AppTheme.cfeGreen, size: 24),
+              Icon(
+                icono,
+                color: habilitado
+                    ? AppTheme.cfeGreen
+                    : AppTheme.secondaryText,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   titulo,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: AppTheme.primaryText,
+                    color: habilitado
+                        ? AppTheme.primaryText
+                        : AppTheme.secondaryText,
                   ),
                 ),
               ),

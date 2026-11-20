@@ -1,69 +1,68 @@
+
 import 'package:flutter/material.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/articulo_model.dart';
 import '../models/inventario_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/inventario_viewmodel.dart';
+import 'form_articulo_view.dart';
 import 'form_inventario_view.dart';
 
-// Pantalla que presenta el inventario asociado a los vehículos registrados.
 class InventarioView extends StatefulWidget {
-  // Entrada: lista de vehículos recibida por la pantalla.
-  // Salida: una instancia de InventarioView.
   const InventarioView({super.key, required List<dynamic> vehiculos});
 
-  // Crea el estado que administra la pantalla.
-  // Entrada: ninguna.
-  // Salida: el estado de tipo _InventarioViewState.
   @override
   State<InventarioView> createState() => _InventarioViewState();
 }
 
-// Estado de la pantalla y administración de sus datos de inventario.
 class _InventarioViewState extends State<InventarioView> {
-  // ViewModel que obtiene y modifica los datos del inventario.
   final InventarioViewModel _viewModel = InventarioViewModel();
 
-  // Flujos que mantienen actualizadas las listas de vehículos y artículos.
   late final Stream<List<VehiculoModel>> _vehiculosStream;
   late final Stream<List<ArticuloModel>> _articulosStream;
+  late final Future<String> _rolFuture;
 
-  // Flujo del inventario correspondiente al vehículo seleccionado.
   Stream<List<InventarioModel>>? _inventarioStream;
-
-  // Vehículo seleccionado actualmente en la pantalla.
   VehiculoModel? _vehiculoSeleccionado;
 
-  // Inicializa los flujos de vehículos y artículos.
-  // Entrada: ninguna.
-  // Salida: ninguna; prepara los datos que utilizará la pantalla.
   @override
   void initState() {
     super.initState();
-    _vehiculosStream = _viewModel.obtenerVehiculos();
+
+    _vehiculosStream = _viewModel.obtenerVehiculosPermitidos();
     _articulosStream = _viewModel.obtenerArticulos();
+    _rolFuture = _viewModel.obtenerRolUsuarioActual();
   }
 
-  // Libera los recursos del ViewModel al cerrar la pantalla.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   @override
   void dispose() {
     _viewModel.dispose();
     super.dispose();
   }
 
-  // Construye el nombre visible de un vehículo.
-  // Entrada: un objeto VehiculoModel.
-  // Salida: una cadena con el número económico, marca, modelo y año.
+  // Muestra mensajes verdes para operaciones exitosas
+  // y rojos cuando ocurre algún error.
+  void _mostrarMensaje(String mensaje, {required bool esError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor:
+            esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  bool _esAdministrador(String rol) {
+    return rol == 'administrador' || rol == 'superusuario';
+  }
+
   String _nombreVehiculo(VehiculoModel vehiculo) {
     return '${vehiculo.numeroEconomico} · ${vehiculo.marca} '
         '${vehiculo.modelo} ${vehiculo.anio}';
   }
 
-  // Selecciona un vehículo y carga el flujo de su inventario.
-  // Entrada: la lista de vehículos y el UID seleccionado, que puede ser nulo.
-  // Salida: ninguna; actualiza el vehículo y el inventario mostrados.
   void _seleccionarVehiculo(
     List<VehiculoModel> vehiculos,
     String? uid,
@@ -82,10 +81,7 @@ class _InventarioViewState extends State<InventarioView> {
     }
   }
 
-  // Abre el formulario para registrar o editar un artículo del inventario.
-  // Entrada: lista de vehículos y registro opcional para editar.
-  // Salida: ninguna; muestra un aviso si el formulario confirma la operación.
-  Future<void> _abrirFormulario({
+  Future<void> _abrirFormularioInventario({
     required List<VehiculoModel> vehiculos,
     InventarioModel? registro,
   }) async {
@@ -103,17 +99,22 @@ class _InventarioViewState extends State<InventarioView> {
     );
 
     if (resultado == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Inventario actualizado correctamente.'),
-        ),
+      _mostrarMensaje(
+        'Inventario actualizado correctamente.',
+        esError: false,
       );
     }
   }
 
-  // Solicita confirmación y retira un artículo del inventario del vehículo.
-  // Entrada: el artículo y el registro de inventario que se eliminará.
-  // Salida: ninguna; muestra el resultado de la operación en pantalla.
+  Future<void> _abrirCatalogo() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const _CatalogoArticulosView(),
+      ),
+    );
+  }
+
   Future<void> _confirmarEliminar(
     ArticuloModel articulo,
     InventarioModel registro,
@@ -122,7 +123,7 @@ class _InventarioViewState extends State<InventarioView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Eliminar artículo'),
+          title: const Text('Retirar artículo'),
           content: Text(
             '¿Quieres retirar "${articulo.nombre}" del inventario '
             'de este vehículo?',
@@ -134,11 +135,12 @@ class _InventarioViewState extends State<InventarioView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
+                minimumSize: const Size(100, 48),
                 backgroundColor: AppTheme.errorRed,
                 foregroundColor: AppTheme.pureWhite,
               ),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Eliminar'),
+              child: const Text('Retirar'),
             ),
           ],
         );
@@ -154,20 +156,14 @@ class _InventarioViewState extends State<InventarioView> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          eliminado
-              ? 'Artículo retirado del inventario.'
-              : _viewModel.mensajeError ?? 'No se pudo eliminar el artículo.',
-        ),
-      ),
+    _mostrarMensaje(
+      eliminado
+          ? 'Artículo retirado del inventario.'
+          : _viewModel.mensajeError ?? 'No se pudo retirar el artículo.',
+      esError: !eliminado,
     );
   }
 
-  // Construye la estructura visual principal de la pantalla.
-  // Entrada: el contexto de Flutter.
-  // Salida: un widget Scaffold con selector, lista y botón para agregar.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -204,7 +200,11 @@ class _InventarioViewState extends State<InventarioView> {
 
                 if (vehiculos.isEmpty) {
                   return const Center(
-                    child: Text('No hay vehículos registrados.'),
+                    child: Text(
+                      'No tienes vehículos asignados o no hay '
+                      'vehículos registrados.',
+                      textAlign: TextAlign.center,
+                    ),
                   );
                 }
 
@@ -224,7 +224,7 @@ class _InventarioViewState extends State<InventarioView> {
                 return Column(
                   children: [
                     DropdownButtonFormField<String>(
-                      value: _vehiculoSeleccionado!.uid,
+                      initialValue: _vehiculoSeleccionado!.uid,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Vehículo',
@@ -244,7 +244,33 @@ class _InventarioViewState extends State<InventarioView> {
                       onChanged: (uid) =>
                           _seleccionarVehiculo(vehiculos, uid),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
+                    FutureBuilder<String>(
+                      future: _rolFuture,
+                      builder: (context, rolSnapshot) {
+                        if (!rolSnapshot.hasData ||
+                            !_esAdministrador(rolSnapshot.data!)) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            onPressed: _abrirCatalogo,
+                            icon: const Icon(Icons.inventory_2_outlined),
+                            label: const Text('Administrar artículos'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.cfeGreen,
+                              side: const BorderSide(
+                                color: AppTheme.cfeGreen,
+                              ),
+                              minimumSize: const Size(0, 48),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
                     Expanded(
                       child: _construirLista(vehiculos),
                     ),
@@ -258,19 +284,21 @@ class _InventarioViewState extends State<InventarioView> {
       floatingActionButton: StreamBuilder<List<VehiculoModel>>(
         stream: _vehiculosStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          if (!snapshot.hasData ||
+              snapshot.data!.isEmpty ||
+              _vehiculoSeleccionado == null) {
             return const SizedBox.shrink();
           }
 
           return FloatingActionButton.extended(
-            onPressed: () => _abrirFormulario(
+            onPressed: () => _abrirFormularioInventario(
               vehiculos: snapshot.data!,
             ),
             backgroundColor: AppTheme.accentYellow,
             foregroundColor: Colors.black87,
             icon: const Icon(Icons.add),
             label: const Text(
-              'Agregar',
+              'Registrar artículo',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           );
@@ -279,9 +307,6 @@ class _InventarioViewState extends State<InventarioView> {
     );
   }
 
-  // Construye la lista de artículos y sus registros para un vehículo.
-  // Entrada: la lista de vehículos disponible para el formulario.
-  // Salida: un widget que muestra estados de carga, errores o artículos.
   Widget _construirLista(List<VehiculoModel> vehiculos) {
     return StreamBuilder<List<ArticuloModel>>(
       stream: _articulosStream,
@@ -300,7 +325,10 @@ class _InventarioViewState extends State<InventarioView> {
 
         if (articulos.isEmpty) {
           return const Center(
-            child: Text('Todavía no hay artículos en el catálogo.'),
+            child: Text(
+              'Todavía no hay artículos activos en el catálogo.',
+              textAlign: TextAlign.center,
+            ),
           );
         }
 
@@ -355,32 +383,33 @@ class _InventarioViewState extends State<InventarioView> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: Wrap(
-                      spacing: 0,
-                      children: [
-                        IconButton(
-                          tooltip: 'Editar',
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _abrirFormulario(
-                            vehiculos: vehiculos,
-                            registro: registro,
+                    trailing: registro == null
+                        ? null
+                        : Wrap(
+                            spacing: 0,
+                            children: [
+                              IconButton(
+                                tooltip: 'Editar',
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () =>
+                                    _abrirFormularioInventario(
+                                  vehiculos: vehiculos,
+                                  registro: registro,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Retirar del vehículo',
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: AppTheme.errorRed,
+                                ),
+                                onPressed: () => _confirmarEliminar(
+                                  articulo,
+                                  registro!,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        IconButton(
-                          tooltip: 'Eliminar',
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: AppTheme.errorRed,
-                          ),
-                          onPressed: registro == null
-                              ? null
-                              : () => _confirmarEliminar(
-                                    articulo,
-                                    registro!,
-                                  ),
-                        ),
-                      ],
-                    ),
                   ),
                 );
               },
@@ -388,6 +417,147 @@ class _InventarioViewState extends State<InventarioView> {
           },
         );
       },
+    );
+  }
+}
+
+class _CatalogoArticulosView extends StatefulWidget {
+  const _CatalogoArticulosView();
+
+  @override
+  State<_CatalogoArticulosView> createState() =>
+      _CatalogoArticulosViewState();
+}
+
+class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
+  final InventarioViewModel _viewModel = InventarioViewModel();
+  late final Stream<List<ArticuloModel>> _articulosStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _articulosStream = _viewModel.obtenerArticulos();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
+  }
+
+  // Muestra mensajes verdes para operaciones exitosas
+  // y rojos cuando ocurre algún error.
+  void _mostrarMensaje(String mensaje, {required bool esError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor:
+            esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _abrirFormulario([ArticuloModel? articulo]) async {
+    final resultado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FormArticuloView(articulo: articulo),
+      ),
+    );
+
+    if (resultado == true && mounted) {
+      _mostrarMensaje(
+        'Catálogo actualizado correctamente.',
+        esError: false,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.pearlWhite,
+      appBar: AppBar(
+        backgroundColor: AppTheme.cfeGreen,
+        foregroundColor: AppTheme.pureWhite,
+        title: const Text(
+          'Administrar artículos',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: StreamBuilder<List<ArticuloModel>>(
+            stream: _articulosStream,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text('No se pudo cargar el catálogo.'),
+                );
+              }
+
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              final articulos = snapshot.data!;
+
+              if (articulos.isEmpty) {
+                return const Center(
+                  child: Text('Aún no hay artículos en el catálogo.'),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: articulos.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final articulo = articulos[index];
+
+                  return Card(
+                    color: AppTheme.pureWhite,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: const BorderSide(color: AppTheme.border),
+                    ),
+                    child: ListTile(
+                      title: Text(
+                        articulo.nombre,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(articulo.categoria),
+                      trailing: IconButton(
+                        tooltip: 'Editar artículo',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _abrirFormulario(articulo),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _abrirFormulario(),
+        backgroundColor: AppTheme.accentYellow,
+        foregroundColor: Colors.black87,
+        icon: const Icon(Icons.add),
+        label: const Text(
+          'Nuevo artículo',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 }

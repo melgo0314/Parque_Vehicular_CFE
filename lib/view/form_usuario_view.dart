@@ -87,7 +87,7 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     }
   }
 
-  // Libera los controladores y el ViewModel al cerrar el formulario.
+  // Libera los controladores al cerrar el formulario.
   // Entrada: ninguna.
   // Salida: ninguna.
   @override
@@ -97,7 +97,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     _contrasenaController.dispose();
     _rpeController.dispose();
     _telefonoController.dispose();
-    _viewModel.dispose();
     super.dispose();
   }
 

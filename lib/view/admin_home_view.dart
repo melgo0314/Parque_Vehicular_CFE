@@ -1,19 +1,54 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
+import '../models/notificacion_model.dart';
+import '../viewmodel/notificacion_viewmodel.dart';
 
 // Pantalla principal del administrador.
-class AdminHomeView extends StatelessWidget {
+class AdminHomeView extends StatefulWidget {
   // Crea la pantalla principal del administrador.
-  // Entrada: key opcional para identificar el widget.
-  // Salida: una instancia de AdminHomeView.
   const AdminHomeView({super.key});
 
+  @override
+  State<AdminHomeView> createState() => _AdminHomeViewState();
+}
+
+class _AdminHomeViewState extends State<AdminHomeView> {
+  // ViewModel encargado de obtener las notificaciones.
+  final NotificacionViewmodel _notificacionViewmodel =
+      NotificacionViewmodel();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Escucha los cambios en las notificaciones.
+    _notificacionViewmodel.addListener(_actualizarContador);
+
+    // Obtiene las notificaciones al abrir la pantalla.
+    _notificacionViewmodel.obtenerNotificaciones();
+  }
+
+  @override
+  void dispose() {
+    _notificacionViewmodel.removeListener(_actualizarContador);
+    _notificacionViewmodel.dispose();
+
+    super.dispose();
+  }
+
+  // Actualiza la interfaz cuando cambian las notificaciones.
+  void _actualizarContador() {
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
   // Obtiene en tiempo real el documento del usuario autenticado.
-  // Entrada: ninguna; utiliza el usuario actual de Firebase Authentication.
-  // Salida: un flujo con el documento del usuario, o un flujo vacío si no hay sesión.
   Stream<DocumentSnapshot<Map<String, dynamic>>> _obtenerUsuario() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -27,9 +62,18 @@ class AdminHomeView extends StatelessWidget {
         .snapshots();
   }
 
-  // Cierra la sesión y redirige a la pantalla de inicio de sesión.
-  // Entrada: context de la pantalla actual.
-  // Salida: ninguna; navega al inicio de sesión o muestra un mensaje si falla.
+  // Cuenta vehículos diferentes que cumplen una condición.
+  int _contarVehiculosUnicos(
+    bool Function(NotificacionModel) condicion,
+  ) {
+    return _notificacionViewmodel.notificaciones
+        .where(condicion)
+        .map((notificacion) => notificacion.vehiculoUid)
+        .toSet()
+        .length;
+  }
+
+  // Cierra la sesión y redirige al inicio de sesión.
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -46,16 +90,28 @@ class AdminHomeView extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No se pudo cerrar la sesión. Intenta nuevamente.'),
+          content: Text(
+            'No se pudo cerrar la sesión. Intenta nuevamente.',
+          ),
           backgroundColor: AppTheme.errorRed,
         ),
       );
     }
   }
 
-  // Construye la pantalla principal con el resumen y las tarjetas de módulos.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets de la pantalla principal.
+  // Abre las notificaciones y actualiza los datos al regresar.
+  void _abrirNotificaciones(BuildContext context) {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.notificaciones,
+    ).then((_) {
+      if (mounted) {
+        _notificacionViewmodel.obtenerNotificaciones();
+      }
+    });
+  }
+
+  // Construye la pantalla principal.
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -92,7 +148,7 @@ class AdminHomeView extends StatelessWidget {
                           crossAxisCount: esCelular ? 2 : 3,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          childAspectRatio: esCelular ? 1.7 : 2.5,
+                          childAspectRatio: esCelular ? 1.35 : 2.5,
                           children: [
                             _tarjetaModulo(
                               context,
@@ -175,19 +231,34 @@ class AdminHomeView extends StatelessWidget {
                               context,
                               Icons.folder_open_outlined,
                               'Expedientes',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.expediente,
+                                );
+                              },
                             ),
                             _tarjetaModulo(
                               context,
                               Icons.analytics_outlined,
                               'Reportes',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.reporte,
+                                );
+                              },
                             ),
                             _tarjetaModulo(
                               context,
                               Icons.dns_outlined,
                               'Respaldo de BD',
-                              () {},
+                              () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.bd,
+                                );
+                              },
                             ),
                           ],
                         );
@@ -204,8 +275,6 @@ class AdminHomeView extends StatelessWidget {
   }
 
   // Construye el encabezado con el nombre del administrador y acciones.
-  // Entrada: context de la pantalla actual.
-  // Salida: un widget con el encabezado y los controles de la pantalla.
   Widget _encabezado(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -242,19 +311,62 @@ class AdminHomeView extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Campana con el contador de notificaciones no leídas.
               IconButton(
                 tooltip: 'Notificaciones',
                 constraints: const BoxConstraints(
                   minWidth: 48,
                   minHeight: 48,
                 ),
-                icon: const Icon(
-                  Icons.notifications_none,
-                  color: AppTheme.pureWhite,
-                  size: 26,
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(
+                      Icons.notifications_none,
+                      color: AppTheme.pureWhite,
+                      size: 26,
+                    ),
+                    if (_notificacionViewmodel.totalNoLeidas > 0)
+                      Positioned(
+                        right: -8,
+                        top: -7,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorRed,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppTheme.pureWhite,
+                              width: 1,
+                            ),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            _notificacionViewmodel.totalNoLeidas > 99
+                                ? '99+'
+                                : '${_notificacionViewmodel.totalNoLeidas}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppTheme.pureWhite,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                onPressed: () {},
+                onPressed: () => _abrirNotificaciones(context),
               ),
+
+              // Botón para cerrar sesión.
               IconButton(
                 tooltip: 'Cerrar sesión',
                 constraints: const BoxConstraints(
@@ -271,6 +383,8 @@ class AdminHomeView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
+
+          // Nombre del administrador.
           StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: _obtenerUsuario(),
             builder: (context, snapshot) {
@@ -282,7 +396,8 @@ class AdminHomeView extends StatelessWidget {
                 final datos = snapshot.data!.data();
 
                 if (datos != null) {
-                  final nombre = datos['nombre']?.toString().trim() ?? '';
+                  final nombre =
+                      datos['nombre']?.toString().trim() ?? '';
                   final apellidoP =
                       datos['apellidoP']?.toString().trim() ?? '';
                   final apellidoM =
@@ -327,11 +442,17 @@ class AdminHomeView extends StatelessWidget {
     );
   }
 
-  // Construye la tarjeta que resume el estado del parque vehicular.
-  // Entrada: context de la pantalla actual.
-  // Salida: una tarjeta con indicadores de próximos, vencidos y vehículos en taller.
+  // Construye la tarjeta con el estado real del parque vehicular.
   Widget _tarjetaEstadoParque(BuildContext context) {
     final theme = Theme.of(context);
+
+    final totalProximos = _contarVehiculosUnicos(
+      (notificacion) => notificacion.esPreventivoProximo,
+    );
+
+    final totalVencidos = _contarVehiculosUnicos(
+      (notificacion) => notificacion.esPreventivoVencido,
+    );
 
     return Card(
       elevation: 0,
@@ -357,23 +478,68 @@ class AdminHomeView extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                // Vehículos con mantenimiento próximo.
                 _indicadorEstado(
                   context,
-                  '-',
+                  _notificacionViewmodel.cargando
+                      ? '...'
+                      : _notificacionViewmodel.error != null
+                          ? '-'
+                          : '$totalProximos',
                   'Próximos',
                   AppTheme.alertOrange,
                 ),
+
+                // Vehículos con mantenimiento vencido.
                 _indicadorEstado(
                   context,
-                  '-',
+                  _notificacionViewmodel.cargando
+                      ? '...'
+                      : _notificacionViewmodel.error != null
+                          ? '-'
+                          : '$totalVencidos',
                   'Vencidos',
                   AppTheme.errorRed,
                 ),
-                _indicadorEstado(
-                  context,
-                  '-',
-                  'En taller',
-                  AppTheme.infoBlue,
+
+                // Vehículos que se encuentran en taller.
+                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('vehiculo')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    var totalTaller = 0;
+
+                    if (snapshot.hasData) {
+                      totalTaller = snapshot.data!.docs.where((documento) {
+                        final datos = documento.data();
+
+                        final estado =
+                            datos['estado']?.toString().toLowerCase() ?? '';
+
+                        final estadoOperativo =
+                            datos['estadoOperativo']
+                                    ?.toString()
+                                    .trim()
+                                    .toLowerCase() ??
+                                '';
+
+                        return estado != 'baja' &&
+                            estadoOperativo.contains('taller');
+                      }).length;
+                    }
+
+                    return _indicadorEstado(
+                      context,
+                      snapshot.connectionState == ConnectionState.waiting
+                          ? '...'
+                          : snapshot.hasError
+                              ? '-'
+                              : '$totalTaller',
+                      'En taller',
+                      AppTheme.infoBlue,
+                    );
+                  },
                 ),
               ],
             ),
@@ -384,8 +550,6 @@ class AdminHomeView extends StatelessWidget {
   }
 
   // Construye un indicador con valor, etiqueta y color.
-  // Entradas: context, valor a mostrar, etiqueta descriptiva y color del valor.
-  // Salida: un widget con el valor y su etiqueta.
   Widget _indicadorEstado(
     BuildContext context,
     String valor,
@@ -415,8 +579,6 @@ class AdminHomeView extends StatelessWidget {
   }
 
   // Construye una tarjeta interactiva para abrir un módulo.
-  // Entradas: context, icono, etiqueta y alTocar, acción que se ejecuta al pulsar.
-  // Salida: una tarjeta que muestra el módulo y ejecuta su acción al tocarla.
   Widget _tarjetaModulo(
     BuildContext context,
     IconData icono,
@@ -433,28 +595,26 @@ class AdminHomeView extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: alTocar,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                icono,
-                color: AppTheme.cfeGreen,
-                size: 24,
+        child: Center(
+          child: ListTile(
+            dense: true,
+            minLeadingWidth: 0,
+            horizontalTitleGap: 10,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            leading: Icon(
+              icono,
+              color: AppTheme.cfeGreen,
+              size: 24,
+            ),
+            title: Text(
+              etiqueta,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.primaryText,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  etiqueta,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.primaryText,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -464,14 +624,8 @@ class AdminHomeView extends StatelessWidget {
 
 // Muestra la etiqueta del rol de administrador.
 class _RolAdministrador extends StatelessWidget {
-  // Crea la etiqueta del rol de administrador.
-  // Entrada: ninguna.
-  // Salida: una instancia de _RolAdministrador.
   const _RolAdministrador();
 
-  // Construye el botón desactivado que identifica el rol.
-  // Entrada: context de la pantalla actual.
-  // Salida: un botón con el icono y el texto del rol.
   @override
   Widget build(BuildContext context) {
     return FilledButton.tonal(
@@ -479,7 +633,8 @@ class _RolAdministrador extends StatelessWidget {
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 48),
         maximumSize: const Size(136, 48),
-        disabledBackgroundColor: AppTheme.pureWhite.withValues(alpha: 0.15),
+        disabledBackgroundColor:
+            AppTheme.pureWhite.withValues(alpha: 0.15),
         disabledForegroundColor: AppTheme.pureWhite,
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),

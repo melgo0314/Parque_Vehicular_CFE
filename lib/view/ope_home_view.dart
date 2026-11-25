@@ -53,6 +53,17 @@ class _OpeHomeViewState extends State<OpeHomeView> {
     });
   }
 
+  Future<void> _abrirModuloYActualizar(
+    BuildContext context,
+    String ruta, {
+    Object? arguments,
+  }) async {
+    await Navigator.pushNamed(context, ruta, arguments: arguments);
+    if (mounted) {
+      await _notificacionViewmodel.obtenerNotificaciones();
+    }
+  }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> _obtenerUsuario() {
     final usuarioActual = FirebaseAuth.instance.currentUser;
 
@@ -583,7 +594,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
             colorTexto: AppTheme.pureWhite,
             habilitado: habilitadas,
             alTocar: () {
-              Navigator.pushNamed(
+              _abrirModuloYActualizar(
                 context,
                 AppRoutes.kilometraje,
                 arguments: vehiculo,
@@ -658,7 +669,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
           Icons.build_circle_outlined,
           habilitado: habilitados,
           alTocar: () {
-            Navigator.pushNamed(
+            _abrirModuloYActualizar(
               context,
               AppRoutes.mantenimiento,
               arguments: vehiculo,

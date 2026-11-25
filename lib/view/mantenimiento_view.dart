@@ -251,13 +251,13 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     VehiculoModel vehiculo,
     List<MantenimientoModel> mantenimientos,
   ) {
-    final kilometrajeActual = vehiculo.kilometrajeActual;
     final intervalo = vehiculo.intervaloPreventivo;
 
     final programados = mantenimientos.where((mantenimiento) {
       return mantenimiento.tipoMantenimiento == 'preventivo' &&
+          !mantenimiento.estaRealizado &&
           mantenimiento.kilometrajeProgramado != null &&
-          mantenimiento.kilometrajeProgramado! > kilometrajeActual;
+          mantenimiento.kilometrajeProgramado! > 0;
     }).toList();
 
     if (programados.isNotEmpty) {
@@ -271,22 +271,23 @@ class _MantenimientoViewState extends State<MantenimientoView> {
 
     final realizados = mantenimientos.where((mantenimiento) {
       return mantenimiento.tipoMantenimiento == 'preventivo' &&
+          mantenimiento.estaRealizado &&
           mantenimiento.kilometrajeRealizado != null;
     }).toList();
 
     if (realizados.isNotEmpty && intervalo > 0) {
       realizados.sort((a, b) {
-        final fechaA = a.fechaRealizado ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final fechaB = b.fechaRealizado ?? DateTime.fromMillisecondsSinceEpoch(0);
-
-        return fechaB.compareTo(fechaA);
+        return b.kilometrajeRealizado!.compareTo(
+          a.kilometrajeRealizado!,
+        );
       });
 
       return realizados.first.kilometrajeRealizado! + intervalo;
     }
 
-    if (intervalo > 0) {
-      return kilometrajeActual + intervalo;
+    final kilometrajeBase = vehiculo.kilometrajeBasePreventivo;
+    if (kilometrajeBase != null && intervalo > 0) {
+      return kilometrajeBase + intervalo;
     }
 
     return null;
@@ -303,7 +304,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     }
 
     final faltan = proximo - vehiculo.kilometrajeActual;
-    final vencido = faltan < 0;
+    final vencido = faltan <= 0;
 
     return Card(
       color: vencido ? AppTheme.errorSurface : AppTheme.warningSurface,
@@ -412,7 +413,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
             const SizedBox(height: 8),
             Text(
               mantenimiento.trabajoRealizado.isEmpty
-                  ? 'Registro de prueba PEMP'
+                  ? 'Mantenimiento Programado'
                   : mantenimiento.trabajoRealizado,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppTheme.primaryText,

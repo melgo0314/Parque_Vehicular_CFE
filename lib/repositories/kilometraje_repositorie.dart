@@ -104,6 +104,15 @@ class KilometrajeRepositorie {
         registroConRpe.toMap(),
       );
 
+      // Guarda el kilometraje base una sola vez para vehículos sin historial.
+      // Las siguientes jornadas no desplazan el punto de inicio preventivo.
+      if (datosVehiculo['kilometrajeBasePreventivo'] == null) {
+        transaccion.update(referenciaVehiculo, {
+          'kilometrajeBasePreventivo': registro.kilometrajeIni,
+          'actualizadoEn': FieldValue.serverTimestamp(),
+        });
+      }
+
       // Bloqueo para impedir otra jornada del mismo vehículo.
       transaccion.set(referenciaBloqueo, {
         'registroUid': referenciaRegistro.id,

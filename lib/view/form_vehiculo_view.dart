@@ -77,7 +77,11 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       _marcaController.text = vehiculo.marca;
       _modeloController.text = vehiculo.modelo;
       _anioController.text = vehiculo.anio.toString();
-      _estadoOperativo = vehiculo.estadoOperativo;
+      final estadoOperativo = vehiculo.estadoOperativo.trim().toLowerCase();
+      // Próximo y vencido se calculan desde el historial y el odómetro.
+      _estadoOperativo = estadoOperativo == 'en_taller'
+          ? 'en_taller'
+          : 'operativo';
       _intervaloPreventivoController.text =
           vehiculo.intervaloPreventivoKm.toString();
     }
@@ -166,6 +170,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       estado: vehiculoOriginal?.estado ?? 'activo',
       estadoOperativo: _estadoOperativo,
       kilometrajeActual: vehiculoOriginal?.kilometrajeActual ?? 0,
+      kilometrajeBasePreventivo:
+          vehiculoOriginal?.kilometrajeBasePreventivo,
       intervaloPreventivoKm:
           int.parse(_intervaloPreventivoController.text.trim()),
       operadorUidActual: vehiculoOriginal?.operadorUidActual ?? '',
@@ -466,14 +472,6 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                                   DropdownMenuItem(
                                     value: 'en_taller',
                                     child: Text('En taller'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'servicio_proximo',
-                                    child: Text('Servicio próximo'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'servicio_vencido',
-                                    child: Text('Servicio vencido'),
                                   ),
                                 ],
                                 onChanged: (valor) {

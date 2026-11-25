@@ -111,6 +111,16 @@ class _AdminHomeViewState extends State<AdminHomeView> {
     });
   }
 
+  Future<void> _abrirModuloYActualizar(
+    BuildContext context,
+    String ruta,
+  ) async {
+    await Navigator.pushNamed(context, ruta);
+    if (mounted) {
+      await _notificacionViewmodel.obtenerNotificaciones();
+    }
+  }
+
   // Construye la pantalla principal.
   @override
   Widget build(BuildContext context) {
@@ -165,12 +175,10 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                               context,
                               Icons.directions_car_outlined,
                               'Vehículos',
-                              () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.vehiculos,
-                                );
-                              },
+                              () => _abrirModuloYActualizar(
+                                context,
+                                AppRoutes.vehiculos,
+                              ),
                             ),
                             _tarjetaModulo(
                               context,
@@ -198,23 +206,19 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                               context,
                               Icons.speed_outlined,
                               'Kilometraje',
-                              () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.kilometraje,
-                                );
-                              },
+                              () => _abrirModuloYActualizar(
+                                context,
+                                AppRoutes.kilometraje,
+                              ),
                             ),
                             _tarjetaModulo(
                               context,
                               Icons.build_circle_outlined,
                               'Mantenimientos',
-                              () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.mantenimiento,
-                                );
-                              },
+                              () => _abrirModuloYActualizar(
+                                context,
+                                AppRoutes.mantenimiento,
+                              ),
                             ),
                             _tarjetaModulo(
                               context,
@@ -453,6 +457,9 @@ class _AdminHomeViewState extends State<AdminHomeView> {
     final totalVencidos = _contarVehiculosUnicos(
       (notificacion) => notificacion.esPreventivoVencido,
     );
+    final totalCorrectivos = _contarVehiculosUnicos(
+      (notificacion) => notificacion.esCorrectivoPendiente,
+    );
 
     return Card(
       elevation: 0,
@@ -502,44 +509,16 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                   AppTheme.errorRed,
                 ),
 
-                // Vehículos que se encuentran en taller.
-                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .collection('vehiculo')
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    var totalTaller = 0;
-
-                    if (snapshot.hasData) {
-                      totalTaller = snapshot.data!.docs.where((documento) {
-                        final datos = documento.data();
-
-                        final estado =
-                            datos['estado']?.toString().toLowerCase() ?? '';
-
-                        final estadoOperativo =
-                            datos['estadoOperativo']
-                                    ?.toString()
-                                    .trim()
-                                    .toLowerCase() ??
-                                '';
-
-                        return estado != 'baja' &&
-                            estadoOperativo.contains('taller');
-                      }).length;
-                    }
-
-                    return _indicadorEstado(
-                      context,
-                      snapshot.connectionState == ConnectionState.waiting
-                          ? '...'
-                          : snapshot.hasError
-                              ? '-'
-                              : '$totalTaller',
-                      'En taller',
-                      AppTheme.infoBlue,
-                    );
-                  },
+                // Cuenta automáticamente los vehículos con correctivos abiertos.
+                _indicadorEstado(
+                  context,
+                  _notificacionViewmodel.cargando
+                      ? '...'
+                      : _notificacionViewmodel.error != null
+                          ? '-'
+                          : '$totalCorrectivos',
+                  'En taller',
+                  AppTheme.infoBlue,
                 ),
               ],
             ),

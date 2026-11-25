@@ -27,6 +27,10 @@ class VehiculoModel {
   // Kilometraje actual del vehículo.
   final int kilometrajeActual;
 
+  // Kilometraje base para calcular el primer preventivo cuando no hay historial.
+  // Se inicializa una sola vez al comenzar a registrar kilometrajes.
+  final int? kilometrajeBasePreventivo;
+
   // Kilometraje entre servicios preventivos.
   final int intervaloPreventivo;
 
@@ -47,6 +51,7 @@ class VehiculoModel {
     this.estado = 'activo',
     this.estadoOperativo = 'operativo',
     this.kilometrajeActual = 0,
+    this.kilometrajeBasePreventivo,
     int intervaloPreventivo = 5000,
     int? intervaloPreventivoKm,
     this.operadorUidActual = '',
@@ -96,6 +101,9 @@ class VehiculoModel {
       kilometrajeActual: _entero(
         map['kilometrajeActual'] ?? map['kilometraje'],
       ),
+      kilometrajeBasePreventivo: map['kilometrajeBasePreventivo'] == null
+          ? null
+          : _entero(map['kilometrajeBasePreventivo']),
       intervaloPreventivo: _entero(
         map['intervaloPreventivo'] ?? map['intervaloPreventivoKm'],
         valorPredeterminado: 5000,
@@ -119,6 +127,8 @@ class VehiculoModel {
       'estado': estado.trim().toLowerCase(),
       'estadoOperativo': estadoOperativo.trim().toLowerCase(),
       'kilometrajeActual': kilometrajeActual,
+      if (kilometrajeBasePreventivo != null)
+        'kilometrajeBasePreventivo': kilometrajeBasePreventivo,
       'intervaloPreventivo': intervaloPreventivo,
       'operadorUidActual': operadorUidActual.trim(),
     };
@@ -137,6 +147,7 @@ class VehiculoModel {
     String? estado,
     String? estadoOperativo,
     int? kilometrajeActual,
+    int? kilometrajeBasePreventivo,
     int? intervaloPreventivo,
     int? intervaloPreventivoKm,
     String? operadorUidActual,
@@ -151,6 +162,8 @@ class VehiculoModel {
       estado: estado ?? this.estado,
       estadoOperativo: estadoOperativo ?? this.estadoOperativo,
       kilometrajeActual: kilometrajeActual ?? this.kilometrajeActual,
+      kilometrajeBasePreventivo:
+          kilometrajeBasePreventivo ?? this.kilometrajeBasePreventivo,
       intervaloPreventivo:
           intervaloPreventivoKm ??
           intervaloPreventivo ??

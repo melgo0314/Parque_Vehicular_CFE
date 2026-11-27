@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 import 'package:p_vehicular/core/routes/app_routes.dart';
 import 'package:p_vehicular/core/theme/app_theme.dart';
 import 'package:p_vehicular/viewmodel/auth_viewmodel.dart';
@@ -35,9 +36,7 @@ class _LoginViewState extends State<LoginView> {
   bool _ocultarContrasena = true;
 
   // Expresión regular básica para validar el formato del correo.
-  final RegExp _emailRegExp = RegExp(
-    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-  );
+  final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   // Libera los controladores y el ViewModel al cerrar esta pantalla.
   // Entrada: ninguna.
@@ -99,10 +98,7 @@ class _LoginViewState extends State<LoginView> {
     }
 
     if (!_emailRegExp.hasMatch(email)) {
-      _mostrarMensaje(
-        'Escribe un correo electrónico válido.',
-        esError: true,
-      );
+      _mostrarMensaje('Escribe un correo electrónico válido.', esError: true);
       return;
     }
 
@@ -141,6 +137,7 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       body: SafeArea(
         child: LayoutBuilder(
@@ -187,12 +184,8 @@ class _LoginViewState extends State<LoginView> {
                               Text(
                                 'Distribución Civac - Zona Morelos',
                                 textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                  color: AppTheme.secondaryText,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: AppTheme.secondaryText),
                               ),
                               const SizedBox(height: 32),
                               TextFormField(
@@ -208,8 +201,7 @@ class _LoginViewState extends State<LoginView> {
                                   prefixIcon: Icon(Icons.email_outlined),
                                 ),
                                 validator: (valor) {
-                                  if (valor == null ||
-                                      valor.trim().isEmpty) {
+                                  if (valor == null || valor.trim().isEmpty) {
                                     return 'El correo es obligatorio.';
                                   }
 
@@ -225,9 +217,7 @@ class _LoginViewState extends State<LoginView> {
                                 controller: _passwordController,
                                 obscureText: _ocultarContrasena,
                                 textInputAction: TextInputAction.done,
-                                autofillHints: const [
-                                  AutofillHints.password,
-                                ],
+                                autofillHints: const [AutofillHints.password],
                                 onFieldSubmitted: (_) => _iniciarSesion(),
                                 decoration: InputDecoration(
                                   labelText: 'Contraseña',

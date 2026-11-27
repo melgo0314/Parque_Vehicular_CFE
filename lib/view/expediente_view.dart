@@ -1,6 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:p_vehicular/view/form_expediente.dart';
 
 import '../core/theme/app_theme.dart';
@@ -9,6 +14,30 @@ import '../models/documento_model.dart';
 import '../models/expediente_model.dart';
 import '../viewmodel/expediente_viewmodel.dart';
 import '../viewmodel/mantenimiento_viewmodel.dart';
+import 'widgets/expediente_web_viewer.dart';
+
+bool _esArchivoImagen(ExpedienteModel expediente) {
+  final mime = expediente.tipoMime.trim().toLowerCase();
+  final extension = expediente.nombreArchivo
+      .split('.')
+      .last
+      .trim()
+      .toLowerCase();
+
+  return mime.startsWith('image/') ||
+      const {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}.contains(extension);
+}
+
+bool _esArchivoPdf(ExpedienteModel expediente) {
+  final mime = expediente.tipoMime.trim().toLowerCase();
+  final extension = expediente.nombreArchivo
+      .split('.')
+      .last
+      .trim()
+      .toLowerCase();
+
+  return mime == 'application/pdf' || extension == 'pdf';
+}
 
 class ExpedienteView extends StatefulWidget {
   const ExpedienteView({super.key, required List<dynamic> vehiculos});
@@ -22,11 +51,9 @@ class _ExpedienteViewState extends State<ExpedienteView> {
 
   // ViewModel utilizado para obtener los vehículos,
   // igual que en el módulo de Mantenimientos.
-  final MantenimientoViewModel _vehiculosViewModel =
-      MantenimientoViewModel();
+  final MantenimientoViewModel _vehiculosViewModel = MantenimientoViewModel();
 
-  final TextEditingController _busquedaController =
-      TextEditingController();
+  final TextEditingController _busquedaController = TextEditingController();
 
   // Flujos y consulta del rol del usuario.
   late final Stream<List<VehiculoModel>> _vehiculosStream;
@@ -86,8 +113,26 @@ class _ExpedienteViewState extends State<ExpedienteView> {
   }
 
   String _nombreVehiculo(VehiculoModel vehiculo) {
-    return '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'
-        .trim();
+    return '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
+  }
+
+  Future<void> _verDocumento(ExpedienteModel expediente) async {
+    final archivo = kIsWeb ? null : _viewModel.descargarArchivo(expediente);
+    final url = kIsWeb
+        ? expediente.archivoUrl.trim().isNotEmpty
+              ? Future<String>.value(expediente.archivoUrl.trim())
+              : _viewModel.obtenerUrlVisualizacion(expediente)
+        : null;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _VisorDocumentoDialog(
+        expediente: expediente,
+        archivo: archivo,
+        url: url,
+      ),
+    );
   }
 
   String _formatearFecha(DateTime fecha) {
@@ -191,7 +236,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
   }
 
   IconData _iconoArchivo(ExpedienteModel expediente) {
-    if (expediente.tipoMime == 'application/pdf') {
+    if (_esArchivoPdf(expediente)) {
       return Icons.picture_as_pdf_outlined;
     }
 
@@ -218,9 +263,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
     }
   }
 
-  Future<void> _confirmarEliminacion(
-    ExpedienteModel expediente,
-  ) async {
+  Future<void> _confirmarEliminacion(ExpedienteModel expediente) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -236,18 +279,14 @@ class _ExpedienteViewState extends State<ExpedienteView> {
           content: const Text(
             '¿Estás seguro de que deseas eliminar este documento? '
             'También se eliminará el archivo almacenado.',
-            style: TextStyle(
-              color: AppTheme.secondaryText,
-            ),
+            style: TextStyle(color: AppTheme.secondaryText),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text(
                 'Cancelar',
-                style: TextStyle(
-                  color: AppTheme.secondaryText,
-                ),
+                style: TextStyle(color: AppTheme.secondaryText),
               ),
             ),
             ElevatedButton(
@@ -265,15 +304,12 @@ class _ExpedienteViewState extends State<ExpedienteView> {
     );
 
     if (confirmar == true && mounted) {
-      final resultado =
-          await _viewModel.eliminarExpediente(expediente.uid);
+      final resultado = await _viewModel.eliminarExpediente(expediente.uid);
 
       if (!mounted) return;
 
       _mostrarMensaje(
-        resultado
-            ? _viewModel.mensajeExito
-            : _viewModel.mensajeError,
+        resultado ? _viewModel.mensajeExito : _viewModel.mensajeError,
         resultado,
       );
 
@@ -289,8 +325,9 @@ class _ExpedienteViewState extends State<ExpedienteView> {
       ..showSnackBar(
         SnackBar(
           content: Text(mensaje),
-          backgroundColor:
-              correcto ? AppTheme.operationalText : AppTheme.errorRed,
+          backgroundColor: correcto
+              ? AppTheme.operationalText
+              : AppTheme.errorRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -313,15 +350,11 @@ class _ExpedienteViewState extends State<ExpedienteView> {
         selectedColor: AppTheme.cfeGreen,
         backgroundColor: AppTheme.pureWhite,
         labelStyle: TextStyle(
-          color: seleccionado
-              ? AppTheme.pureWhite
-              : AppTheme.primaryText,
+          color: seleccionado ? AppTheme.pureWhite : AppTheme.primaryText,
           fontWeight: FontWeight.w600,
         ),
         side: BorderSide(
-          color: seleccionado
-              ? AppTheme.cfeGreen
-              : AppTheme.border,
+          color: seleccionado ? AppTheme.cfeGreen : AppTheme.border,
         ),
       ),
     );
@@ -341,15 +374,10 @@ class _ExpedienteViewState extends State<ExpedienteView> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(
-          color: AppTheme.border,
-        ),
+        side: const BorderSide(color: AppTheme.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
             Container(
@@ -436,15 +464,21 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                       ),
                     ],
                   ),
+                  TextButton.icon(
+                    onPressed: () => _verDocumento(expediente),
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text('Ver documento'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.cfeGreen,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                  ),
                 ],
               ),
             ),
             PopupMenuButton<String>(
               tooltip: 'Opciones del documento',
-              icon: const Icon(
-                Icons.more_vert,
-                color: AppTheme.secondaryText,
-              ),
+              icon: const Icon(Icons.more_vert, color: AppTheme.secondaryText),
               onSelected: (opcion) {
                 if (opcion == 'editar') {
                   _abrirFormulario(
@@ -461,10 +495,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                   value: 'editar',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.edit_outlined,
-                        color: AppTheme.cfeGreen,
-                      ),
+                      Icon(Icons.edit_outlined, color: AppTheme.cfeGreen),
                       SizedBox(width: 8),
                       Text('Editar'),
                     ],
@@ -474,10 +505,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                   value: 'eliminar',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.delete_outline,
-                        color: AppTheme.errorRed,
-                      ),
+                      Icon(Icons.delete_outline, color: AppTheme.errorRed),
                       SizedBox(width: 8),
                       Text('Eliminar'),
                     ],
@@ -494,10 +522,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
   Widget _mensajeVacio(String mensaje) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 30,
-          vertical: 45,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 45),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -529,10 +554,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
     bool esOperador,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
         color: AppTheme.pureWhite,
         borderRadius: BorderRadius.circular(12),
@@ -578,9 +600,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(35),
-              child: CircularProgressIndicator(
-                color: AppTheme.cfeGreen,
-              ),
+              child: CircularProgressIndicator(color: AppTheme.cfeGreen),
             ),
           );
         }
@@ -615,11 +635,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: filtrados.length,
           itemBuilder: (context, index) {
-            return _tarjetaExpediente(
-              filtrados[index],
-              documentos,
-              vehiculo,
-            );
+            return _tarjetaExpediente(filtrados[index], documentos, vehiculo);
           },
         );
       },
@@ -666,9 +682,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return const Center(
-            child: CircularProgressIndicator(
-              color: AppTheme.cfeGreen,
-            ),
+            child: CircularProgressIndicator(color: AppTheme.cfeGreen),
           );
         }
 
@@ -685,25 +699,6 @@ class _ExpedienteViewState extends State<ExpedienteView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Documentación del vehículo',
-                style: TextStyle(
-                  color: AppTheme.primaryText,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'Consulta y administra los documentos '
-                'correspondientes a cada unidad.',
-                style: TextStyle(
-                  color: AppTheme.secondaryText,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 18),
-
               // Selección del vehículo.
               const Text(
                 'Vehículo',
@@ -713,63 +708,8 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                 ),
               ),
               const SizedBox(height: 8),
-              _selectorVehiculo(
-                vehiculos,
-                vehiculoSeleccionado!,
-                esOperador,
-              ),
-
+              _selectorVehiculo(vehiculos, vehiculoSeleccionado!, esOperador),
               const SizedBox(height: 18),
-
-              // Información del vehículo seleccionado.
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.pureWhite,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppTheme.border,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.directions_car_outlined,
-                      color: AppTheme.cfeGreen,
-                      size: 30,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _nombreVehiculo(vehiculoSeleccionado),
-                            style: const TextStyle(
-                              color: AppTheme.primaryText,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'Placas: ${vehiculoSeleccionado.placas} · '
-                            'Núm. económico: '
-                            '${vehiculoSeleccionado.numeroEconomico}',
-                            style: const TextStyle(
-                              color: AppTheme.secondaryText,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
               // Botón para registrar un documento.
               SizedBox(
                 width: double.infinity,
@@ -787,9 +727,7 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.cfeGreen,
                     foregroundColor: AppTheme.pureWhite,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -838,15 +776,11 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                   fillColor: AppTheme.pureWhite,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.border,
-                    ),
+                    borderSide: const BorderSide(color: AppTheme.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.border,
-                    ),
+                    borderSide: const BorderSide(color: AppTheme.border),
                   ),
                 ),
               ),
@@ -861,20 +795,14 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                     _chipFiltro('todos', 'Todos'),
                     _chipFiltro('vigentes', 'Vigentes'),
                     _chipFiltro('vencidos', 'Vencidos'),
-                    _chipFiltro(
-                      'sin_vencimiento',
-                      'Sin vencimiento',
-                    ),
+                    _chipFiltro('sin_vencimiento', 'Sin vencimiento'),
                   ],
                 ),
               ),
 
               const SizedBox(height: 12),
 
-              _contenidoExpedientes(
-                vehiculoSeleccionado,
-                documentos,
-              ),
+              _contenidoExpedientes(vehiculoSeleccionado, documentos),
             ],
           ),
         );
@@ -895,20 +823,19 @@ class _ExpedienteViewState extends State<ExpedienteView> {
             final vehiculos = vehiculosSnapshot.data ?? [];
 
             return Scaffold(
+              bottomNavigationBar: const InicioFooter(),
               backgroundColor: AppTheme.pearlWhite,
               appBar: AppBar(
                 title: const Text('Expediente digital'),
                 backgroundColor: AppTheme.cfeGreen,
                 foregroundColor: AppTheme.pureWhite,
-                iconTheme: const IconThemeData(
-                  color: AppTheme.pureWhite,
-                ),
+                iconTheme: const IconThemeData(color: AppTheme.pureWhite),
                 elevation: 0,
               ),
 
               body: SafeArea(
-                child: rolSnapshot.connectionState ==
-                            ConnectionState.waiting ||
+                child:
+                    rolSnapshot.connectionState == ConnectionState.waiting ||
                         (vehiculosSnapshot.connectionState ==
                                 ConnectionState.waiting &&
                             !vehiculosSnapshot.hasData)
@@ -918,19 +845,189 @@ class _ExpedienteViewState extends State<ExpedienteView> {
                         ),
                       )
                     : vehiculosSnapshot.hasError
-                        ? _mensajeVacio(
-                            'No se pudieron cargar los vehículos. '
-                            'Revisa tu conexión o los permisos de tu cuenta.',
-                          )
-                        : _construirContenido(
-                            esOperador: esOperador,
-                            vehiculos: vehiculos,
-                          ),
+                    ? _mensajeVacio(
+                        'No se pudieron cargar los vehículos. '
+                        'Revisa tu conexión o los permisos de tu cuenta.',
+                      )
+                    : _construirContenido(
+                        esOperador: esOperador,
+                        vehiculos: vehiculos,
+                      ),
               ),
             );
           },
         );
       },
+    );
+  }
+}
+
+class _VisorDocumentoDialog extends StatelessWidget {
+  const _VisorDocumentoDialog({
+    required this.expediente,
+    required this.archivo,
+    required this.url,
+  });
+
+  final ExpedienteModel expediente;
+  final Future<Uint8List>? archivo;
+  final Future<String>? url;
+
+  Widget _mensajeError(String mensaje) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 48,
+              color: AppTheme.errorRed,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.primaryText),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final altura = MediaQuery.sizeOf(context).height * 0.84;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      backgroundColor: AppTheme.pureWhite,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 1100, maxHeight: altura),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 10, 8, 10),
+              decoration: const BoxDecoration(
+                color: AppTheme.cfeGreen,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _esArchivoPdf(expediente)
+                        ? Icons.picture_as_pdf_outlined
+                        : _esArchivoImagen(expediente)
+                        ? Icons.image_outlined
+                        : Icons.description_outlined,
+                    color: AppTheme.pureWhite,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      expediente.nombreArchivo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.pureWhite,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cerrar visor',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: AppTheme.pureWhite),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: kIsWeb
+                  ? FutureBuilder<String>(
+                      future: url,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.cfeGreen,
+                            ),
+                          );
+                        }
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return _mensajeError(
+                            'No se pudo obtener el enlace del archivo en '
+                            'Firebase Storage: ${snapshot.error ?? 'sin detalle'}',
+                          );
+                        }
+                        return crearExpedienteWebViewer(
+                          snapshot.data!,
+                          esImagen: _esArchivoImagen(expediente),
+                        );
+                      },
+                    )
+                  : FutureBuilder<Uint8List>(
+                      future: archivo,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.cfeGreen,
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          final error = snapshot.error;
+                          final mensaje = error is StateError
+                              ? error.message.toString()
+                              : 'No se pudo descargar el archivo. Comprueba '
+                                    'la conexión y los permisos de Firebase Storage.';
+
+                          return _mensajeError(mensaje);
+                        }
+
+                        final bytes = snapshot.data!;
+
+                        if (_esArchivoPdf(expediente)) {
+                          return PdfViewer.data(
+                            bytes,
+                            sourceName:
+                                '${expediente.uid}_${expediente.nombreArchivo}',
+                          );
+                        }
+
+                        if (_esArchivoImagen(expediente)) {
+                          return InteractiveViewer(
+                            minScale: 0.5,
+                            maxScale: 5,
+                            child: Center(
+                              child: Image.memory(
+                                bytes,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => const Text(
+                                  'No se pudo interpretar la imagen.',
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return const Center(
+                          child: Text(
+                            'El formato de este archivo no tiene visor.',
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

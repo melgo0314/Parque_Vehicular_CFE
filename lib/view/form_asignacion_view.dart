@@ -4,6 +4,7 @@
 // Descripción: Permite crear y editar asignaciones de vehículos a operadores.
 
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/asignacion_model.dart';
@@ -19,10 +20,7 @@ class FormAsignacionView extends StatefulWidget {
   // Crea el formulario y recibe opcionalmente una asignación existente.
   // Entradas: key opcional y asignacion opcional para el modo de edición.
   // Salida: una instancia de FormAsignacionView.
-  const FormAsignacionView({
-    super.key,
-    this.asignacion,
-  });
+  const FormAsignacionView({super.key, this.asignacion});
 
   // Crea el estado asociado al formulario.
   // Entrada: ninguna.
@@ -226,18 +224,12 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (_operadorUid == null || _vehiculoUid == null) {
-      _mostrarMensaje(
-        'Selecciona un operador y un vehículo.',
-        error: true,
-      );
+      _mostrarMensaje('Selecciona un operador y un vehículo.', error: true);
       return;
     }
 
     if (_esTemporal && _fechaFin == null) {
-      _mostrarMensaje(
-        'Selecciona la fecha de término.',
-        error: true,
-      );
+      _mostrarMensaje('Selecciona la fecha de término.', error: true);
       return;
     }
 
@@ -257,9 +249,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
         estado: _esTemporal ? 'temporal' : 'vigente',
       );
 
-      guardado = await _viewModel.actualizarAsignacion(
-        asignacionActualizada,
-      );
+      guardado = await _viewModel.actualizarAsignacion(asignacionActualizada);
     } else {
       guardado = await _viewModel.crearAsignacion(
         operadorUid: _operadorUid!,
@@ -316,19 +306,13 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.infoSurface,
-        border: Border.all(
-          color: AppTheme.infoBlue.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: AppTheme.infoBlue.withValues(alpha: 0.18)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            color: AppTheme.infoBlue,
-            size: 22,
-          ),
+          Icon(Icons.info_outline, color: AppTheme.infoBlue, size: 22),
           SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -344,10 +328,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
                 SizedBox(height: 4),
                 Text(
                   'Al terminar la fecha de fin, la unidad regresa a su operador titular.',
-                  style: TextStyle(
-                    color: AppTheme.infoBlue,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: AppTheme.infoBlue, fontSize: 13),
                 ),
               ],
             ),
@@ -380,10 +361,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
     return InputDecorator(
       decoration: InputDecoration(
         labelText: etiqueta,
-        prefixIcon: const Icon(
-          Icons.error_outline,
-          color: AppTheme.errorRed,
-        ),
+        prefixIcon: const Icon(Icons.error_outline, color: AppTheme.errorRed),
       ),
       child: Row(
         children: [
@@ -395,10 +373,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
           ),
           IconButton(
             tooltip: 'Reintentar',
-            constraints: const BoxConstraints(
-              minWidth: 48,
-              minHeight: 48,
-            ),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             onPressed: reintentar,
             icon: const Icon(Icons.refresh),
           ),
@@ -441,9 +416,8 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
           );
         }
 
-        final operadorSeleccionado = operadores.any(
-          (usuario) => usuario.uid == _operadorUid,
-        )
+        final operadorSeleccionado =
+            operadores.any((usuario) => usuario.uid == _operadorUid)
             ? _operadorUid
             : null;
 
@@ -512,9 +486,8 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
           );
         }
 
-        final vehiculoSeleccionado = vehiculos.any(
-          (vehiculo) => vehiculo.uid == _vehiculoUid,
-        )
+        final vehiculoSeleccionado =
+            vehiculos.any((vehiculo) => vehiculo.uid == _vehiculoUid)
             ? _vehiculoUid
             : null;
 
@@ -576,17 +549,12 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
                 value: 'permanente',
                 label: Text('Permanente'),
               ),
-              ButtonSegment<String>(
-                value: 'temporal',
-                label: Text('Temporal'),
-              ),
+              ButtonSegment<String>(value: 'temporal', label: Text('Temporal')),
             ],
             selected: {_tipo},
             showSelectedIcon: false,
             style: ButtonStyle(
-              minimumSize: const WidgetStatePropertyAll(
-                Size.fromHeight(48),
-              ),
+              minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
               backgroundColor: WidgetStateProperty.resolveWith((estados) {
                 if (estados.contains(WidgetState.selected)) {
                   return AppTheme.cfeGreen;
@@ -744,10 +712,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
             prefixIcon: Icon(Icons.event_note_outlined),
           ),
           items: _motivos.map((motivo) {
-            return DropdownMenuItem<String>(
-              value: motivo,
-              child: Text(motivo),
-            );
+            return DropdownMenuItem<String>(value: motivo, child: Text(motivo));
           }).toList(),
           validator: (valor) {
             if (!_esTemporal) return null;
@@ -809,10 +774,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
             ),
           ),
           const SizedBox(height: 20),
-          if (_esTemporal) ...[
-            _avisoTemporal(),
-            const SizedBox(height: 16),
-          ],
+          if (_esTemporal) ...[_avisoTemporal(), const SizedBox(height: 16)],
           _selectorOperador(),
           const SizedBox(height: 16),
           _selectorVehiculo(),
@@ -820,10 +782,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
           _selectorTipo(),
           const SizedBox(height: 16),
           _fechas(),
-          if (_esTemporal) ...[
-            const SizedBox(height: 16),
-            _selectorMotivo(),
-          ],
+          if (_esTemporal) ...[const SizedBox(height: 16), _selectorMotivo()],
           const SizedBox(height: 24),
           FilledButton.icon(
             style: FilledButton.styleFrom(
@@ -846,8 +805,8 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
               _guardando
                   ? 'Guardando…'
                   : _esEdicion
-                      ? 'Guardar cambios'
-                      : 'Guardar asignación',
+                  ? 'Guardar cambios'
+                  : 'Guardar asignación',
             ),
           ),
           const SizedBox(height: 10),
@@ -857,8 +816,9 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
               foregroundColor: AppTheme.primaryText,
               side: const BorderSide(color: AppTheme.border),
             ),
-            onPressed:
-                _guardando ? null : () => Navigator.of(context).pop(false),
+            onPressed: _guardando
+                ? null
+                : () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
         ],
@@ -872,6 +832,7 @@ class _FormAsignacionViewState extends State<FormAsignacionView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,

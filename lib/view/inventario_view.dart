@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/articulo_model.dart';
@@ -31,7 +31,11 @@ class _InventarioViewState extends State<InventarioView> {
     super.initState();
 
     _vehiculosStream = _viewModel.obtenerVehiculosPermitidos();
-    _articulosStream = _viewModel.obtenerArticulos();
+
+    // Incluye los artículos activos e inactivos para que el catálogo
+    // administrativo pueda mostrar los inactivos en gris.
+    _articulosStream = _viewModel.obtenerTodosArticulos();
+
     _rolFuture = _viewModel.obtenerRolUsuarioActual();
   }
 
@@ -41,21 +45,22 @@ class _InventarioViewState extends State<InventarioView> {
     super.dispose();
   }
 
-  // Muestra mensajes verdes para operaciones exitosas
-  // y rojos cuando ocurre algún error.
   void _mostrarMensaje(String mensaje, {required bool esError}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensaje),
-        backgroundColor:
-            esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+        backgroundColor: esError ? AppTheme.errorRed : AppTheme.cfeGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   bool _esAdministrador(String rol) {
-    return rol == 'administrador' || rol == 'superusuario';
+    final rolNormalizado = rol.trim().toLowerCase();
+    return rolNormalizado == 'administrador' ||
+        rolNormalizado == 'superusuario';
   }
 
   String _nombreVehiculo(VehiculoModel vehiculo) {
@@ -63,18 +68,16 @@ class _InventarioViewState extends State<InventarioView> {
         '${vehiculo.modelo} ${vehiculo.anio}';
   }
 
-  void _seleccionarVehiculo(
-    List<VehiculoModel> vehiculos,
-    String? uid,
-  ) {
+  void _seleccionarVehiculo(List<VehiculoModel> vehiculos, String? uid) {
     if (uid == null) return;
 
     for (final vehiculo in vehiculos) {
       if (vehiculo.uid == uid) {
         setState(() {
           _vehiculoSeleccionado = vehiculo;
-          _inventarioStream =
-              _viewModel.obtenerInventarioVehiculo(vehiculo.uid);
+          _inventarioStream = _viewModel.obtenerInventarioVehiculo(
+            vehiculo.uid,
+          );
         });
         return;
       }
@@ -99,19 +102,14 @@ class _InventarioViewState extends State<InventarioView> {
     );
 
     if (resultado == true && mounted) {
-      _mostrarMensaje(
-        'Inventario actualizado correctamente.',
-        esError: false,
-      );
+      _mostrarMensaje('Inventario actualizado correctamente.', esError: false);
     }
   }
 
   Future<void> _abrirCatalogo() async {
     await Navigator.push<void>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const _CatalogoArticulosView(),
-      ),
+      MaterialPageRoute(builder: (context) => const _CatalogoArticulosView()),
     );
   }
 
@@ -121,7 +119,7 @@ class _InventarioViewState extends State<InventarioView> {
   ) async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Retirar artículo'),
           content: Text(
@@ -130,7 +128,7 @@ class _InventarioViewState extends State<InventarioView> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
@@ -139,7 +137,7 @@ class _InventarioViewState extends State<InventarioView> {
                 backgroundColor: AppTheme.errorRed,
                 foregroundColor: AppTheme.pureWhite,
               ),
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Retirar'),
             ),
           ],
@@ -167,6 +165,7 @@ class _InventarioViewState extends State<InventarioView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -191,9 +190,7 @@ class _InventarioViewState extends State<InventarioView> {
                 }
 
                 if (!vehiculosSnapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 final vehiculos = vehiculosSnapshot.data!;
@@ -209,14 +206,12 @@ class _InventarioViewState extends State<InventarioView> {
                 }
 
                 final seleccionValida = vehiculos.any(
-                  (vehiculo) =>
-                      vehiculo.uid == _vehiculoSeleccionado?.uid,
+                  (vehiculo) => vehiculo.uid == _vehiculoSeleccionado?.uid,
                 );
 
                 if (!seleccionValida) {
                   _vehiculoSeleccionado = vehiculos.first;
-                  _inventarioStream =
-                      _viewModel.obtenerInventarioVehiculo(
+                  _inventarioStream = _viewModel.obtenerInventarioVehiculo(
                     _vehiculoSeleccionado!.uid,
                   );
                 }
@@ -228,9 +223,7 @@ class _InventarioViewState extends State<InventarioView> {
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Vehículo',
-                        prefixIcon: Icon(
-                          Icons.local_shipping_outlined,
-                        ),
+                        prefixIcon: Icon(Icons.local_shipping_outlined),
                       ),
                       items: vehiculos.map((vehiculo) {
                         return DropdownMenuItem<String>(
@@ -241,8 +234,7 @@ class _InventarioViewState extends State<InventarioView> {
                           ),
                         );
                       }).toList(),
-                      onChanged: (uid) =>
-                          _seleccionarVehiculo(vehiculos, uid),
+                      onChanged: (uid) => _seleccionarVehiculo(vehiculos, uid),
                     ),
                     const SizedBox(height: 10),
                     FutureBuilder<String>(
@@ -261,9 +253,7 @@ class _InventarioViewState extends State<InventarioView> {
                             label: const Text('Administrar artículos'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.cfeGreen,
-                              side: const BorderSide(
-                                color: AppTheme.cfeGreen,
-                              ),
+                              side: const BorderSide(color: AppTheme.cfeGreen),
                               minimumSize: const Size(0, 48),
                             ),
                           ),
@@ -271,9 +261,7 @@ class _InventarioViewState extends State<InventarioView> {
                       },
                     ),
                     const SizedBox(height: 10),
-                    Expanded(
-                      child: _construirLista(vehiculos),
-                    ),
+                    Expanded(child: _construirLista(vehiculos)),
                   ],
                 );
               },
@@ -291,9 +279,8 @@ class _InventarioViewState extends State<InventarioView> {
           }
 
           return FloatingActionButton.extended(
-            onPressed: () => _abrirFormularioInventario(
-              vehiculos: snapshot.data!,
-            ),
+            onPressed: () =>
+                _abrirFormularioInventario(vehiculos: snapshot.data!),
             backgroundColor: AppTheme.accentYellow,
             foregroundColor: Colors.black87,
             icon: const Icon(Icons.add),
@@ -321,16 +308,7 @@ class _InventarioViewState extends State<InventarioView> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final articulos = articulosSnapshot.data!;
-
-        if (articulos.isEmpty) {
-          return const Center(
-            child: Text(
-              'Todavía no hay artículos activos en el catálogo.',
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
+        final todosLosArticulos = articulosSnapshot.data!;
 
         return StreamBuilder<List<InventarioModel>>(
           stream: _inventarioStream,
@@ -346,16 +324,34 @@ class _InventarioViewState extends State<InventarioView> {
             }
 
             final registros = inventarioSnapshot.data!;
+            final articulosRegistrados = registros
+                .map((registro) => registro.articuloUid)
+                .toSet();
+
+            // El checklist muestra todos los activos y conserva visibles
+            // los inactivos que ya están registrados en esta unidad.
+            final articulosVisibles = todosLosArticulos.where((articulo) {
+              return articulo.activo ||
+                  articulosRegistrados.contains(articulo.uid);
+            }).toList();
+
+            if (articulosVisibles.isEmpty) {
+              return const Center(
+                child: Text(
+                  'No hay artículos activos para asignar a este vehículo.',
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
 
             return ListView.separated(
               padding: const EdgeInsets.only(bottom: 90),
-              itemCount: articulos.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(height: 8),
+              itemCount: articulosVisibles.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final articulo = articulos[index];
-                InventarioModel? registro;
+                final articulo = articulosVisibles[index];
 
+                InventarioModel? registro;
                 for (final item in registros) {
                   if (item.articuloUid == articulo.uid) {
                     registro = item;
@@ -363,50 +359,69 @@ class _InventarioViewState extends State<InventarioView> {
                   }
                 }
 
+                final estaInactivo = !articulo.activo;
+
                 return Card(
-                  color: AppTheme.pureWhite,
+                  color: estaInactivo
+                      ? Colors.grey.shade200
+                      : AppTheme.pureWhite,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: AppTheme.border),
+                    side: BorderSide(
+                      color: estaInactivo
+                          ? Colors.grey.shade400
+                          : AppTheme.border,
+                    ),
                   ),
                   child: ListTile(
                     title: Text(
                       articulo.nombre,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: estaInactivo
+                            ? Colors.grey.shade700
+                            : AppTheme.primaryText,
+                      ),
                     ),
                     subtitle: Text(
-                      registro == null
+                      estaInactivo
+                          ? 'Inactivo · '
+                                '${registro == null ? 'No asignado' : 'Ya está en este vehículo'}'
+                          : registro == null
                           ? 'Sin registrar'
                           : 'Cantidad: ${registro.cantidad}'
-                              '${registro.observaciones.isEmpty ? '' : ' · ${registro.observaciones}'}',
+                                '${registro.observaciones.isEmpty ? '' : ' · ${registro.observaciones}'}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: estaInactivo
+                            ? Colors.grey.shade600
+                            : AppTheme.secondaryText,
+                      ),
                     ),
                     trailing: registro == null
                         ? null
                         : Wrap(
                             spacing: 0,
                             children: [
-                              IconButton(
-                                tooltip: 'Editar',
-                                icon: const Icon(Icons.edit_outlined),
-                                onPressed: () =>
-                                    _abrirFormularioInventario(
-                                  vehiculos: vehiculos,
-                                  registro: registro,
+                              if (articulo.activo)
+                                IconButton(
+                                  tooltip: 'Editar',
+                                  icon: const Icon(Icons.edit_outlined),
+                                  onPressed: () => _abrirFormularioInventario(
+                                    vehiculos: vehiculos,
+                                    registro: registro,
+                                  ),
                                 ),
-                              ),
                               IconButton(
                                 tooltip: 'Retirar del vehículo',
                                 icon: const Icon(
                                   Icons.delete_outline,
                                   color: AppTheme.errorRed,
                                 ),
-                                onPressed: () => _confirmarEliminar(
-                                  articulo,
-                                  registro!,
-                                ),
+                                onPressed: () =>
+                                    _confirmarEliminar(articulo, registro!),
                               ),
                             ],
                           ),
@@ -425,8 +440,7 @@ class _CatalogoArticulosView extends StatefulWidget {
   const _CatalogoArticulosView();
 
   @override
-  State<_CatalogoArticulosView> createState() =>
-      _CatalogoArticulosViewState();
+  State<_CatalogoArticulosView> createState() => _CatalogoArticulosViewState();
 }
 
 class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
@@ -436,7 +450,9 @@ class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
   @override
   void initState() {
     super.initState();
-    _articulosStream = _viewModel.obtenerArticulos();
+
+    // En administración se muestran activos e inactivos.
+    _articulosStream = _viewModel.obtenerTodosArticulos();
   }
 
   @override
@@ -445,14 +461,13 @@ class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
     super.dispose();
   }
 
-  // Muestra mensajes verdes para operaciones exitosas
-  // y rojos cuando ocurre algún error.
   void _mostrarMensaje(String mensaje, {required bool esError}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensaje),
-        backgroundColor:
-            esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+        backgroundColor: esError ? AppTheme.errorRed : AppTheme.cfeGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -467,16 +482,14 @@ class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
     );
 
     if (resultado == true && mounted) {
-      _mostrarMensaje(
-        'Catálogo actualizado correctamente.',
-        esError: false,
-      );
+      _mostrarMensaje('Catálogo actualizado correctamente.', esError: false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -499,9 +512,7 @@ class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
               }
 
               if (!snapshot.hasData) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
+                return const Center(child: CircularProgressIndicator());
               }
 
               final articulos = snapshot.data!;
@@ -515,29 +526,51 @@ class _CatalogoArticulosViewState extends State<_CatalogoArticulosView> {
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: articulos.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 8),
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final articulo = articulos[index];
+                  final estaInactivo = !articulo.activo;
 
                   return Card(
-                    color: AppTheme.pureWhite,
+                    color: estaInactivo
+                        ? Colors.grey.shade200
+                        : AppTheme.pureWhite,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
-                      side: const BorderSide(color: AppTheme.border),
+                      side: BorderSide(
+                        color: estaInactivo
+                            ? Colors.grey.shade400
+                            : AppTheme.border,
+                      ),
                     ),
                     child: ListTile(
                       title: Text(
                         articulo.nombre,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
+                          color: estaInactivo
+                              ? Colors.grey.shade700
+                              : AppTheme.primaryText,
                         ),
                       ),
-                      subtitle: Text(articulo.categoria),
+                      subtitle: Text(
+                        '${articulo.categoria}'
+                        '${estaInactivo ? ' · Inactivo' : ' · Activo'}',
+                        style: TextStyle(
+                          color: estaInactivo
+                              ? Colors.grey.shade600
+                              : AppTheme.secondaryText,
+                        ),
+                      ),
                       trailing: IconButton(
-                        tooltip: 'Editar artículo',
-                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Editar o cambiar estado',
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          color: estaInactivo
+                              ? Colors.grey.shade600
+                              : AppTheme.cfeGreen,
+                        ),
                         onPressed: () => _abrirFormulario(articulo),
                       ),
                     ),

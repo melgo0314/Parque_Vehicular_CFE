@@ -31,6 +31,10 @@ class InventarioViewModel extends ChangeNotifier {
     return _repositorio.obtenerArticulos();
   }
 
+  Stream<List<ArticuloModel>> obtenerTodosArticulos() {
+    return _repositorio.obtenerTodosArticulos();
+  }
+
   // Consultar el checklist de un vehículo.
   Stream<List<InventarioModel>> obtenerInventarioVehiculo(
     String vehiculoUid,

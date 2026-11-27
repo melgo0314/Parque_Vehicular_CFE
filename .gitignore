@@ -53,3 +53,5 @@ functions/.secret.local
 .firebase/
 **/*service-account*.json
 **/serviceAccountKey.json
+/functions/
+/respaldo_vehicular/

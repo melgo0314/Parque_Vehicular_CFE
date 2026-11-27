@@ -1,20 +1,16 @@
-
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 import 'package:p_vehicular/models/detalle_refaccion_model.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/mantenimiento_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/mantenimiento_viewmodel.dart';
 
-// Formulario para registrar o editar un mantenimiento.
 class FormMantenimientoView extends StatefulWidget {
-  // Vehículo al que pertenece el mantenimiento.
   final VehiculoModel vehiculo;
-
-  // Mantenimiento que se editará; es null cuando se crea uno nuevo.
   final MantenimientoModel? mantenimiento;
 
-  // Crea el formulario para el vehículo indicado.
   const FormMantenimientoView({
     super.key,
     required this.vehiculo,
@@ -22,91 +18,51 @@ class FormMantenimientoView extends StatefulWidget {
   });
 
   @override
-  State<FormMantenimientoView> createState() =>
-      _FormMantenimientoViewState();
+  State<FormMantenimientoView> createState() => _FormMantenimientoViewState();
 }
 
-// Estado y comportamiento del formulario de mantenimiento.
 class _FormMantenimientoViewState extends State<FormMantenimientoView> {
-  // Llave global para validar los campos del formulario.
-  final _formKey = GlobalKey<FormState>();
+  static const List<String> _categoriasPrueba = [
+    'Categoría I: anomalía crítica inoperable',
+    'Categoría II: anomalía crítica limitada',
+    'Categoría III: daños poco severos/operable',
+    'Categoría IV: excelente estado',
+  ];
 
-  // ViewModel que registra y actualiza mantenimientos.
+  final _formKey = GlobalKey<FormState>();
   final _viewModel = MantenimientoViewModel();
 
-  // Controlador para la descripción del trabajo o problema.
   final _trabajoController = TextEditingController();
-
-  // Controlador para el kilometraje programado.
   final _kilometrajeProgramadoController = TextEditingController();
-
-  // Controlador para el kilometraje realizado.
   final _kilometrajeRealizadoController = TextEditingController();
-
-  // Controlador para el horómetro.
   final _horometroController = TextEditingController();
-
-  // Controlador para el costo del servicio.
   final _costoController = TextEditingController();
-
-  // Controlador para el proveedor o responsable.
   final _proveedorController = TextEditingController();
-
-  // Controlador para las observaciones.
   final _observacionesController = TextEditingController();
-
-  // Controlador para la vida útil de las llantas.
   final _vidaUtilLlantasController = TextEditingController();
-
-  // Controlador para el nivel de desgaste de las llantas.
   final _desgasteLlantasController = TextEditingController();
 
-  // Controlador para la categoría de la prueba PEMP.
-  final _categoriaPruebaController = TextEditingController();
-
-  // Controladores para los nombres de las refacciones.
   final List<TextEditingController> _nombreRefaccionControllers = [];
-
-  // Controladores para las cantidades de las refacciones.
   final List<TextEditingController> _cantidadRefaccionControllers = [];
 
-  // Tipo de mantenimiento seleccionado.
   String _tipoMantenimiento = 'preventivo';
-
-  // Módulo de mantenimiento seleccionado.
   String _modulo = 'mecanico';
-
-  // Estado del mantenimiento.
   String _estado = 'programado';
+  String? _categoriaPrueba;
 
-  // Fecha programada para el mantenimiento, si existe.
   DateTime? _fechaProgramada;
-
-  // Fecha en que se realizó el mantenimiento.
   DateTime? _fechaRealizado;
-
-  // Fecha de caducidad de las llantas, si se registra.
   DateTime? _fechaCaducidadLlantas;
-
-  // Fecha de la prueba PEMP, si corresponde.
   DateTime? _fechaPrueba;
 
-  // Indica si se capturarán datos de control de llantas.
   bool _controlLlantas = false;
+  bool _regularizaPreventivo = false;
 
-  // Indica si el módulo seleccionado es el laboratorio PEMP.
   bool get _esLaboratorio => _modulo == 'laboratorio_pemp';
-
-  // Indica si el mantenimiento ya fue realizado.
   bool get _estaRealizado => _estado == 'realizado';
-
-  // Indica si el mantenimiento está programado.
   bool get _estaProgramado => _estado == 'programado';
-
-  // Indica si el mantenimiento está pendiente.
   bool get _estaPendiente => _estado == 'pendiente';
 
-  // Carga los datos del mantenimiento existente en los campos.
   @override
   void initState() {
     super.initState();
@@ -117,6 +73,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       _tipoMantenimiento = mantenimiento.tipoMantenimiento;
       _modulo = mantenimiento.modulo;
       _estado = mantenimiento.estado;
+      _regularizaPreventivo = mantenimiento.regularizaPreventivo;
 
       _fechaProgramada = mantenimiento.fechaProgramada;
       _fechaRealizado = mantenimiento.fechaRealizado;
@@ -125,12 +82,9 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
 
       _kilometrajeProgramadoController.text =
           mantenimiento.kilometrajeProgramado?.toString() ?? '';
-
       _kilometrajeRealizadoController.text =
           mantenimiento.kilometrajeRealizado?.toString() ?? '';
-
-      _horometroController.text =
-          mantenimiento.horometro?.toString() ?? '';
+      _horometroController.text = mantenimiento.horometro?.toString() ?? '';
 
       _trabajoController.text = mantenimiento.trabajoRealizado;
       _costoController.text = mantenimiento.costo.toString();
@@ -139,13 +93,15 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
 
       _vidaUtilLlantasController.text =
           mantenimiento.vidaUtilLlantas?.toString() ?? '';
-
       _desgasteLlantasController.text =
           mantenimiento.nivelDesgasteLlantas?.toString() ?? '';
 
-      _categoriaPruebaController.text = mantenimiento.categoriaPrueba;
+      if (_categoriasPrueba.contains(mantenimiento.categoriaPrueba)) {
+        _categoriaPrueba = mantenimiento.categoriaPrueba;
+      }
 
-      _controlLlantas = mantenimiento.fechaCaducidadLlantas != null ||
+      _controlLlantas =
+          mantenimiento.fechaCaducidadLlantas != null ||
           mantenimiento.vidaUtilLlantas != null ||
           mantenimiento.nivelDesgasteLlantas != null;
 
@@ -160,7 +116,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     }
   }
 
-  // Libera los controladores y el ViewModel al cerrar el formulario.
   @override
   void dispose() {
     _trabajoController.dispose();
@@ -172,7 +127,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     _observacionesController.dispose();
     _vidaUtilLlantasController.dispose();
     _desgasteLlantasController.dispose();
-    _categoriaPruebaController.dispose();
 
     for (final controller in _nombreRefaccionControllers) {
       controller.dispose();
@@ -186,23 +140,13 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     super.dispose();
   }
 
-  // Agrega un par de campos para capturar una refacción y su cantidad.
-  void _agregarRefaccion({
-    String nombre = '',
-    String cantidad = '1',
-  }) {
+  void _agregarRefaccion({String nombre = '', String cantidad = '1'}) {
     setState(() {
-      _nombreRefaccionControllers.add(
-        TextEditingController(text: nombre),
-      );
-
-      _cantidadRefaccionControllers.add(
-        TextEditingController(text: cantidad),
-      );
+      _nombreRefaccionControllers.add(TextEditingController(text: nombre));
+      _cantidadRefaccionControllers.add(TextEditingController(text: cantidad));
     });
   }
 
-  // Quita una refacción y libera sus controladores.
   void _quitarRefaccion(int indice) {
     setState(() {
       _nombreRefaccionControllers[indice].dispose();
@@ -213,7 +157,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     });
   }
 
-  // Abre un selector de fecha.
   Future<DateTime?> _elegirFecha(DateTime? fechaActual) async {
     final hoy = DateTime.now();
 
@@ -225,7 +168,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     );
   }
 
-  // Da formato a una fecha para mostrarla en el formulario.
   String _mostrarFecha(DateTime? fecha) {
     if (fecha == null) return 'Seleccionar fecha';
 
@@ -235,7 +177,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     return '$dia/$mes/${fecha.year}';
   }
 
-  // Valida que el valor de un campo obligatorio tenga contenido.
   String? _validarObligatorio(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Este campo es obligatorio.';
@@ -244,7 +185,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     return null;
   }
 
-  // Valida que un campo requerido contenga un número válido.
   String? _validarNumero(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Este campo es obligatorio.';
@@ -257,11 +197,8 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     return null;
   }
 
-  // Valida un número solamente cuando el usuario escribe un valor.
   String? _validarNumeroOpcional(String? valor) {
-    if (valor == null || valor.trim().isEmpty) {
-      return null;
-    }
+    if (valor == null || valor.trim().isEmpty) return null;
 
     if (double.tryParse(valor.trim()) == null) {
       return 'Escribe un número válido.';
@@ -270,40 +207,36 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     return null;
   }
 
-  // Actualiza el estado predeterminado cuando cambia el tipo de mantenimiento.
   void _actualizarEstadoPorTipo(String tipo) {
     setState(() {
       _tipoMantenimiento = tipo;
-
-      if (tipo == 'preventivo') {
-        _estado = 'programado';
-      } else {
-        _estado = 'pendiente';
-      }
+      _estado = tipo == 'preventivo' ? 'programado' : 'pendiente';
+      if (tipo != 'correctivo') _regularizaPreventivo = false;
     });
   }
 
-  // Valida los campos, crea el modelo y lo registra o actualiza.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    // Las pruebas PEMP conservan su validación de fecha.
     if (_esLaboratorio && _fechaPrueba == null) {
-      _mostrarMensaje(
-        'Selecciona la fecha de la prueba.',
-        esError: true,
-      );
+      _mostrarMensaje('Selecciona la fecha de la prueba.', esError: true);
       return;
     }
 
-    // Un mantenimiento preventivo programado necesita fecha o kilometraje.
+    if (_esLaboratorio &&
+        (_categoriaPrueba == null ||
+            !_categoriasPrueba.contains(_categoriaPrueba))) {
+      _mostrarMensaje('Selecciona la categoría de la prueba.', esError: true);
+      return;
+    }
+
     if (_estaProgramado) {
       final tieneFecha = _fechaProgramada != null;
-
-      final tieneKilometraje =
-          _kilometrajeProgramadoController.text.trim().isNotEmpty;
+      final tieneKilometraje = _kilometrajeProgramadoController.text
+          .trim()
+          .isNotEmpty;
 
       if (!tieneFecha && !tieneKilometraje) {
         _mostrarMensaje(
@@ -314,7 +247,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       }
     }
 
-    // Un mantenimiento realizado necesita fecha del servicio.
     if (_estaRealizado && !_esLaboratorio && _fechaRealizado == null) {
       _mostrarMensaje(
         'Selecciona la fecha en que se realizó el mantenimiento.',
@@ -323,7 +255,35 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       return;
     }
 
-    // Un mantenimiento pendiente necesita una descripción del problema.
+    if (_estaRealizado &&
+        _modulo == 'mecanico' &&
+        _tipoMantenimiento == 'correctivo' &&
+        _regularizaPreventivo) {
+      final kilometrajeProgramado = int.tryParse(
+        _kilometrajeProgramadoController.text.trim(),
+      );
+      final kilometrajeRealizado = int.tryParse(
+        _kilometrajeRealizadoController.text.trim(),
+      );
+
+      if (kilometrajeProgramado == null || kilometrajeProgramado <= 0) {
+        _mostrarMensaje(
+          'Indica el kilometraje en que vencía el preventivo.',
+          esError: true,
+        );
+        return;
+      }
+
+      if (kilometrajeRealizado == null ||
+          kilometrajeRealizado < kilometrajeProgramado) {
+        _mostrarMensaje(
+          'El kilometraje real debe ser igual o mayor al kilometraje vencido.',
+          esError: true,
+        );
+        return;
+      }
+    }
+
     if (_estaPendiente && _trabajoController.text.trim().isEmpty) {
       _mostrarMensaje(
         'Describe el problema o mantenimiento que está pendiente.',
@@ -336,17 +296,13 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
 
     for (var i = 0; i < _nombreRefaccionControllers.length; i++) {
       final nombre = _nombreRefaccionControllers[i].text.trim();
-
       final cantidad = int.tryParse(
         _cantidadRefaccionControllers[i].text.trim(),
       );
 
       if (nombre.isNotEmpty && cantidad != null && cantidad > 0) {
         refacciones.add(
-          DetalleRefaccionModel(
-            nombre: nombre,
-            cantidad: cantidad,
-          ),
+          DetalleRefaccionModel(nombre: nombre, cantidad: cantidad),
         );
       }
     }
@@ -360,57 +316,41 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       rpeUsuario: mantenimientoAnterior?.rpeUsuario ?? '',
       tipoMantenimiento: _esLaboratorio ? 'prueba' : _tipoMantenimiento,
       modulo: _modulo,
-
-      // Se guarda explícitamente el estado seleccionado.
       estado: _esLaboratorio ? 'realizado' : _estado,
-
       fechaProgramada: _fechaProgramada,
-
-      // Solo se guarda fecha de servicio cuando ya fue realizado.
       fechaRealizado: _estaRealizado ? _fechaRealizado : null,
-
-      kilometrajeProgramado:
-          int.tryParse(_kilometrajeProgramadoController.text.trim()),
-
-      // El kilometraje realizado solo se guarda al completar el servicio.
+      kilometrajeProgramado: int.tryParse(
+        _kilometrajeProgramadoController.text.trim(),
+      ),
       kilometrajeRealizado: _esLaboratorio || !_estaRealizado
           ? null
           : int.tryParse(_kilometrajeRealizadoController.text.trim()),
-
-      // El horómetro solo se guarda cuando el mantenimiento está realizado.
+      regularizaPreventivo:
+          _modulo == 'mecanico' &&
+          _tipoMantenimiento == 'correctivo' &&
+          _regularizaPreventivo,
       horometro: _modulo == 'hidraulico' && _estaRealizado
           ? double.tryParse(_horometroController.text.trim())
           : null,
-
       trabajoRealizado: _trabajoController.text.trim(),
       detalleRefacciones: refacciones,
-
       costo: _estaRealizado
           ? double.tryParse(_costoController.text.trim()) ?? 0
           : 0,
-
       proveedor: _estaRealizado ? _proveedorController.text.trim() : '',
-
       observaciones: _observacionesController.text.trim(),
-
-      fechaCaducidadLlantas:
-          _controlLlantas ? _fechaCaducidadLlantas : null,
-
+      fechaCaducidadLlantas: _controlLlantas ? _fechaCaducidadLlantas : null,
       vidaUtilLlantas: _controlLlantas
           ? double.tryParse(_vidaUtilLlantasController.text.trim())
           : null,
-
       nivelDesgasteLlantas: _controlLlantas
           ? double.tryParse(_desgasteLlantasController.text.trim())
           : null,
-
       fechaPrueba: _esLaboratorio ? _fechaPrueba : null,
-
-      categoriaPrueba:
-          _esLaboratorio ? _categoriaPruebaController.text.trim() : '',
-
-      observacionesPrueba:
-          _esLaboratorio ? _observacionesController.text.trim() : '',
+      categoriaPrueba: _esLaboratorio ? _categoriaPrueba! : '',
+      observacionesPrueba: _esLaboratorio
+          ? _observacionesController.text.trim()
+          : '',
     );
 
     final resultado = mantenimientoAnterior == null
@@ -423,19 +363,16 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       _mostrarMensaje(
         _viewModel.mensajeExito ?? 'Mantenimiento guardado correctamente.',
       );
-
       Navigator.pop(context, true);
     } else {
       _mostrarMensaje(
         _viewModel.mensajeError ?? 'No se pudo guardar el mantenimiento.',
         esError: true,
       );
-
       _viewModel.limpiarMensajes();
     }
   }
 
-  // Muestra un mensaje flotante de éxito o error.
   void _mostrarMensaje(String mensaje, {bool esError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -447,7 +384,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       );
   }
 
-  // Construye un campo de texto reutilizable para el formulario.
   Widget _campoTexto({
     required String etiqueta,
     required TextEditingController controller,
@@ -461,14 +397,10 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
       validator: validator,
       maxLines: maxLineas,
       keyboardType: teclado,
-      decoration: InputDecoration(
-        labelText: etiqueta,
-        hintText: ayuda,
-      ),
+      decoration: InputDecoration(labelText: etiqueta, hintText: ayuda),
     );
   }
 
-  // Construye un botón para seleccionar una fecha.
   Widget _selectorFecha({
     required String etiqueta,
     required DateTime? fecha,
@@ -482,10 +414,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
         OutlinedButton.icon(
           onPressed: () async {
             final seleccionada = await _elegirFecha(fecha);
-
-            if (seleccionada != null) {
-              alElegir(seleccionada);
-            }
+            if (seleccionada != null) alElegir(seleccionada);
           },
           icon: const Icon(Icons.calendar_today_outlined),
           label: Text(_mostrarFecha(fecha)),
@@ -497,31 +426,26 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
     );
   }
 
-  // Construye un título para separar las secciones del formulario.
   Widget _tituloSeccion(String titulo) {
     return Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 10),
       child: Text(
         titulo,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.cfeGreen,
-            ),
+        style: Theme.of(context).textTheme.titleMedium
+            ?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.cfeGreen),
       ),
     );
   }
 
-  // Construye la interfaz del formulario según el tipo y estado.
   @override
   Widget build(BuildContext context) {
     final estaEditando = widget.mantenimiento != null;
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       appBar: AppBar(
         title: Text(
-          estaEditando
-              ? 'Editar mantenimiento'
-              : 'Registrar mantenimiento',
+          estaEditando ? 'Editar mantenimiento' : 'Registrar mantenimiento',
         ),
         backgroundColor: AppTheme.cfeGreen,
         foregroundColor: AppTheme.pureWhite,
@@ -554,11 +478,9 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         '${widget.vehiculo.anio}',
                       ),
                     ),
-
                     _tituloSeccion('Tipo de registro'),
-
                     DropdownButtonFormField<String>(
-                      value: _modulo == 'laboratorio_pemp'
+                      initialValue: _modulo == 'laboratorio_pemp'
                           ? 'prueba'
                           : _tipoMantenimiento,
                       decoration: const InputDecoration(
@@ -575,7 +497,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         ),
                         DropdownMenuItem(
                           value: 'prueba',
-                          child: Text('Prueba PEMP'),
+                          child: Text('Prueba LAPEM'),
                         ),
                       ],
                       onChanged: (valor) {
@@ -593,14 +515,10 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         });
                       },
                     ),
-
                     const SizedBox(height: 12),
-
                     DropdownButtonFormField<String>(
-                      value: _modulo,
-                      decoration: const InputDecoration(
-                        labelText: 'Módulo',
-                      ),
+                      initialValue: _modulo,
+                      decoration: const InputDecoration(labelText: 'Módulo'),
                       items: const [
                         DropdownMenuItem(
                           value: 'mecanico',
@@ -612,7 +530,10 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         ),
                         DropdownMenuItem(
                           value: 'laboratorio_pemp',
-                          child: Text('Laboratorio PEMP'),
+                          child: Text(
+                            'Laboratorio de pruebas de equipo y materiales '
+                            '(LAPEM)',
+                          ),
                         ),
                       ],
                       onChanged: (valor) {
@@ -631,16 +552,11 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         });
                       },
                     ),
-
-                    // Estado disponible para mantenimientos mecánicos e hidráulicos.
                     if (!_esLaboratorio) ...[
                       _tituloSeccion('Estado del mantenimiento'),
-
                       DropdownButtonFormField<String>(
-                        value: _estado,
-                        decoration: const InputDecoration(
-                          labelText: 'Estado',
-                        ),
+                        initialValue: _estado,
+                        decoration: const InputDecoration(labelText: 'Estado'),
                         items: _tipoMantenimiento == 'preventivo'
                             ? const [
                                 DropdownMenuItem(
@@ -663,29 +579,28 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                                 ),
                               ],
                         onChanged: (valor) {
-                          if (valor == null) return;
-
-                          setState(() {
-                            _estado = valor;
-                          });
+                          if (valor != null) {
+                            setState(() => _estado = valor);
+                          }
                         },
                       ),
-
                       const SizedBox(height: 8),
-
                       Text(
                         _estaProgramado
-                            ? 'Registra cuándo o en qué kilometraje se debe realizar el mantenimiento.'
+                            ? 'Registra cuándo o en qué kilometraje se debe '
+                                  'realizar el mantenimiento.'
                             : _estaPendiente
-                                ? 'Registra el problema que necesita atención.'
-                                : 'Captura los datos del mantenimiento que ya se realizó.',
+                            ? 'Registra el problema que necesita atención.'
+                            : 'Captura los datos del mantenimiento que '
+                                  'ya se realizó.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
-
                     if (_esLaboratorio) ...[
-                      _tituloSeccion('Prueba de equipo PEMP'),
-
+                      _tituloSeccion(
+                        'Laboratorio de pruebas de equipo y materiales '
+                        '(LAPEM)',
+                      ),
                       _selectorFecha(
                         etiqueta: 'Fecha de la prueba',
                         fecha: _fechaPrueba,
@@ -693,17 +608,32 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                           setState(() => _fechaPrueba = fecha);
                         },
                       ),
-
                       const SizedBox(height: 14),
-
-                      _campoTexto(
-                        etiqueta: 'Categoría asignada',
-                        controller: _categoriaPruebaController,
+                      DropdownButtonFormField<String>(
+                        initialValue:
+                            _categoriasPrueba.contains(_categoriaPrueba)
+                            ? _categoriaPrueba
+                            : null,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Categoría asignada',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                        items: _categoriasPrueba.map((categoria) {
+                          return DropdownMenuItem<String>(
+                            value: categoria,
+                            child: Text(
+                              categoria,
+                              overflow: TextOverflow.visible,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (valor) {
+                          setState(() => _categoriaPrueba = valor);
+                        },
                         validator: _validarObligatorio,
                       ),
-
                       const SizedBox(height: 14),
-
                       _campoTexto(
                         etiqueta: 'Observaciones de la prueba',
                         controller: _observacionesController,
@@ -711,9 +641,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                       ),
                     ] else ...[
                       _tituloSeccion('Fechas y lecturas'),
-
-                      // La fecha programada se utiliza para mantenimientos
-                      // preventivos que todavía no se han realizado.
                       if (_estaProgramado || _estaRealizado) ...[
                         _selectorFecha(
                           etiqueta: 'Fecha programada (opcional)',
@@ -724,9 +651,6 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         ),
                         const SizedBox(height: 14),
                       ],
-
-                      // La fecha del servicio solo se muestra al completar
-                      // el mantenimiento.
                       if (_estaRealizado) ...[
                         _selectorFecha(
                           etiqueta: 'Fecha del servicio',
@@ -737,22 +661,50 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         ),
                         const SizedBox(height: 14),
                       ],
-
-                      // Kilometraje previsto para mantenimiento preventivo.
+                      if (_modulo == 'mecanico' &&
+                          _tipoMantenimiento == 'correctivo')
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: _regularizaPreventivo,
+                          title: const Text(
+                            'Este correctivo atiende un preventivo vencido',
+                          ),
+                          subtitle: const Text(
+                            'Al completarlo, se calculará el siguiente servicio '
+                            'desde el kilometraje real.',
+                          ),
+                          onChanged: (valor) {
+                            setState(() {
+                              _regularizaPreventivo = valor ?? false;
+                              if (!_regularizaPreventivo) {
+                                _kilometrajeProgramadoController.clear();
+                              }
+                            });
+                          },
+                        ),
                       if (_modulo == 'mecanico' &&
                           _tipoMantenimiento == 'preventivo' &&
-                          (_estaProgramado || _estaRealizado)) ...[
+                          (_estaProgramado || _estaRealizado))
                         _campoTexto(
                           etiqueta: 'Kilometraje programado',
                           controller: _kilometrajeProgramadoController,
                           validator: _validarNumeroOpcional,
                           teclado: TextInputType.number,
                         ),
-                      ],
-
-                      // Lectura real de kilometraje al terminar el servicio.
-                      if (_estaRealizado &&
-                          _modulo != 'hidraulico') ...[
+                      if (_modulo == 'mecanico' &&
+                          _tipoMantenimiento == 'correctivo' &&
+                          _regularizaPreventivo &&
+                          (_estaPendiente || _estaRealizado))
+                        _campoTexto(
+                          etiqueta: 'Kilometraje en que vencía el preventivo',
+                          controller: _kilometrajeProgramadoController,
+                          validator: _estaRealizado
+                              ? _validarNumero
+                              : _validarNumeroOpcional,
+                          teclado: TextInputType.number,
+                        ),
+                      if (_estaRealizado && _modulo != 'hidraulico') ...[
                         const SizedBox(height: 14),
                         _campoTexto(
                           etiqueta: 'Kilometraje del servicio',
@@ -761,10 +713,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                           teclado: TextInputType.number,
                         ),
                       ],
-
-                      // Lectura del horómetro para el módulo hidráulico.
-                      if (_estaRealizado &&
-                          _modulo == 'hidraulico') ...[
+                      if (_estaRealizado && _modulo == 'hidraulico') ...[
                         const SizedBox(height: 14),
                         _campoTexto(
                           etiqueta: 'Horómetro (horas)',
@@ -775,32 +724,25 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                           ),
                         ),
                       ],
-
                       _tituloSeccion(
                         _estaPendiente
                             ? 'Descripción del problema'
                             : _estaProgramado
-                                ? 'Descripción del mantenimiento'
-                                : 'Trabajo y responsable',
+                            ? 'Descripción del mantenimiento'
+                            : 'Trabajo y responsable',
                       ),
-
                       _campoTexto(
                         etiqueta: _estaPendiente
                             ? 'Problema o trabajo requerido'
                             : _estaProgramado
-                                ? 'Descripción del mantenimiento previsto'
-                                : 'Descripción del trabajo realizado',
+                            ? 'Descripción del mantenimiento previsto'
+                            : 'Descripción del trabajo realizado',
                         controller: _trabajoController,
-                        validator: _estaPendiente
+                        validator: _estaPendiente || _estaRealizado
                             ? _validarObligatorio
-                            : _estaRealizado
-                                ? _validarObligatorio
-                                : null,
+                            : null,
                         maxLineas: 3,
                       ),
-
-                      // Responsable y proveedor solamente son obligatorios
-                      // cuando el mantenimiento ya fue realizado.
                       if (_estaRealizado) ...[
                         const SizedBox(height: 14),
                         _campoTexto(
@@ -809,20 +751,19 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                           validator: _validarObligatorio,
                         ),
                       ],
-
                       _tituloSeccion('Refacciones utilizadas'),
-
-                      for (var i = 0;
-                          i < _nombreRefaccionControllers.length;
-                          i++)
+                      for (
+                        var i = 0;
+                        i < _nombreRefaccionControllers.length;
+                        i++
+                      )
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Row(
                             children: [
                               Expanded(
                                 child: TextFormField(
-                                  controller:
-                                      _nombreRefaccionControllers[i],
+                                  controller: _nombreRefaccionControllers[i],
                                   decoration: InputDecoration(
                                     labelText: 'Nombre de refacción ${i + 1}',
                                   ),
@@ -832,8 +773,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                               SizedBox(
                                 width: 110,
                                 child: TextFormField(
-                                  controller:
-                                      _cantidadRefaccionControllers[i],
+                                  controller: _cantidadRefaccionControllers[i],
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(
                                     labelText: 'Cantidad',
@@ -851,16 +791,13 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                             ],
                           ),
                         ),
-
                       OutlinedButton.icon(
                         onPressed: () => _agregarRefaccion(),
                         icon: const Icon(Icons.add),
                         label: const Text('Agregar refacción'),
                       ),
-
                       if (_modulo == 'mecanico') ...[
                         _tituloSeccion('Control de llantas'),
-
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Registrar datos de llantas'),
@@ -869,20 +806,15 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                             setState(() => _controlLlantas = valor);
                           },
                         ),
-
                         if (_controlLlantas) ...[
                           _selectorFecha(
                             etiqueta: 'Fecha de caducidad',
                             fecha: _fechaCaducidadLlantas,
                             alElegir: (fecha) {
-                              setState(
-                                () => _fechaCaducidadLlantas = fecha,
-                              );
+                              setState(() => _fechaCaducidadLlantas = fecha);
                             },
                           ),
-
                           const SizedBox(height: 14),
-
                           _campoTexto(
                             etiqueta: 'Vida útil (km)',
                             controller: _vidaUtilLlantasController,
@@ -891,9 +823,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                               decimal: true,
                             ),
                           ),
-
                           const SizedBox(height: 14),
-
                           _campoTexto(
                             etiqueta: 'Desgaste (%)',
                             controller: _desgasteLlantasController,
@@ -904,11 +834,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                           ),
                         ],
                       ],
-
                       _tituloSeccion('Costo y observaciones'),
-
-                      // El costo solamente es obligatorio cuando se realiza
-                      // el mantenimiento.
                       _campoTexto(
                         etiqueta: 'Costo',
                         controller: _costoController,
@@ -919,18 +845,14 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                           decimal: true,
                         ),
                       ),
-
                       const SizedBox(height: 14),
-
                       _campoTexto(
                         etiqueta: 'Observaciones (opcional)',
                         controller: _observacionesController,
                         maxLineas: 3,
                       ),
                     ],
-
                     const SizedBox(height: 24),
-
                     ListenableBuilder(
                       listenable: _viewModel,
                       builder: (context, child) {
@@ -950,8 +872,8 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                             _viewModel.cargando
                                 ? 'Guardando...'
                                 : estaEditando
-                                    ? 'Guardar cambios'
-                                    : 'Guardar mantenimiento',
+                                ? 'Guardar cambios'
+                                : 'Guardar mantenimiento',
                           ),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
@@ -959,9 +881,7 @@ class _FormMantenimientoViewState extends State<FormMantenimientoView> {
                         );
                       },
                     ),
-
                     const SizedBox(height: 10),
-
                     OutlinedButton(
                       onPressed: _viewModel.cargando
                           ? null

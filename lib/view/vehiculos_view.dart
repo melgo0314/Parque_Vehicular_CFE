@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/vehiculos_model.dart';
@@ -8,10 +9,7 @@ import 'form_vehiculo_view.dart';
 class VehiculosView extends StatefulWidget {
   final List<VehiculoModel>? vehiculosAsignados;
 
-  const VehiculosView({
-    super.key,
-    this.vehiculosAsignados,
-  });
+  const VehiculosView({super.key, this.vehiculosAsignados});
 
   @override
   State<VehiculosView> createState() => _VehiculosViewState();
@@ -35,9 +33,7 @@ class _VehiculosViewState extends State<VehiculosView> {
 
   Future<void> _abrirFormulario(VehiculoModel vehiculo) async {
     final resultado = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => FormVehiculoView(vehiculo: vehiculo),
-      ),
+      MaterialPageRoute(builder: (_) => FormVehiculoView(vehiculo: vehiculo)),
     );
 
     // El operador regresa al inicio, que volverá a consultar su unidad.
@@ -89,9 +85,9 @@ class _VehiculosViewState extends State<VehiculosView> {
 
   String _formatearKilometraje(int kilometraje) {
     return kilometraje.toString().replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (coincidencia) => '${coincidencia[1]},',
-        );
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (coincidencia) => '${coincidencia[1]},',
+    );
   }
 
   bool _coincideFiltro(VehiculoModel vehiculo) {
@@ -100,11 +96,9 @@ class _VehiculosViewState extends State<VehiculosView> {
 
     switch (_filtro) {
       case 'operativos':
-        return estadoAdministrativo != 'baja' &&
-            estadoOperativo == 'operativo';
+        return estadoAdministrativo != 'baja' && estadoOperativo == 'operativo';
       case 'taller':
-        return estadoAdministrativo != 'baja' &&
-            estadoOperativo == 'en_taller';
+        return estadoAdministrativo != 'baja' && estadoOperativo == 'en_taller';
       case 'servicio':
         return estadoAdministrativo != 'baja' &&
             (estadoOperativo == 'servicio_proximo' ||
@@ -131,10 +125,7 @@ class _VehiculosViewState extends State<VehiculosView> {
         borderRadius: BorderRadius.circular(14),
         onTap: () => _abrirFormulario(vehiculo),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
               Container(
@@ -236,10 +227,7 @@ class _VehiculosViewState extends State<VehiculosView> {
               ),
               IconButton(
                 tooltip: 'Editar vehículo',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 onPressed: () => _abrirFormulario(vehiculo),
                 icon: const Icon(Icons.edit_outlined),
                 color: AppTheme.cfeGreen,
@@ -279,6 +267,7 @@ class _VehiculosViewState extends State<VehiculosView> {
     final incluirBaja = _filtro == 'baja';
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -300,9 +289,7 @@ class _VehiculosViewState extends State<VehiculosView> {
           : FloatingActionButton.extended(
               onPressed: () {
                 Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => const FormVehiculoView(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const FormVehiculoView()),
                 );
               },
               backgroundColor: AppTheme.accentYellow,
@@ -413,14 +400,13 @@ class _VehiculosViewState extends State<VehiculosView> {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
                 return const Center(
-                  child: CircularProgressIndicator(
-                    color: AppTheme.cfeGreen,
-                  ),
+                  child: CircularProgressIndicator(color: AppTheme.cfeGreen),
                 );
               }
 
-              final vehiculos =
-                  (snapshot.data ?? []).where(_coincideFiltro).toList();
+              final vehiculos = (snapshot.data ?? [])
+                  .where(_coincideFiltro)
+                  .toList();
 
               if (vehiculos.isEmpty) {
                 return Center(

@@ -15,7 +15,7 @@ class NotificacionRepositorie {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
 
-  static const int _kilometrosAvisoPreventivo = 500;
+  static const int _kilometrosAvisoPreventivo = 10000;
 
   Future<List<NotificacionModel>> obtenerNotificaciones() async {
     final usuarioActual = _auth.currentUser;
@@ -90,6 +90,40 @@ class NotificacionRepositorie {
       final preventivosRealizados = <Map<String, dynamic>>[];
       var existePreventivoProgramadoConFechaOKm = false;
 
+      // Kilometraje del preventivo que quedó regularizado por el correctivo
+      // realizado más recientemente.
+      final correctivosRegularizados = consultaMantenimientos.docs
+          .map((documento) => documento.data())
+          .where((datos) {
+            final fecha = _fecha(datos['fechaRealizado']);
+            final estado = (datos['estado']?.toString() ?? '')
+                .trim()
+                .toLowerCase();
+            return (datos['tipoMantenimiento']?.toString() ?? '')
+                    .trim()
+                    .toLowerCase() ==
+                'correctivo' &&
+                datos['regularizaPreventivo'] == true &&
+                (estado == 'realizado' || (estado.isEmpty && fecha != null)) &&
+                datos['kilometrajeProgramado'] != null &&
+                datos['kilometrajeRealizado'] != null;
+          })
+          .toList();
+      correctivosRegularizados.sort((a, b) {
+        final fechaA = _fecha(a['fechaRealizado']);
+        final fechaB = _fecha(b['fechaRealizado']);
+        if (fechaA != null && fechaB != null) return fechaB.compareTo(fechaA);
+        return _entero(b['kilometrajeRealizado'])
+            .compareTo(_entero(a['kilometrajeRealizado']));
+      });
+      final int? kilometrajeVencidoRegularizado =
+          correctivosRegularizados.isEmpty
+              ? null
+              : _entero(correctivosRegularizados.first['kilometrajeProgramado']);
+      final fechaRegularizacion = correctivosRegularizados.isEmpty
+          ? null
+          : _fecha(correctivosRegularizados.first['fechaRealizado']);
+
       for (final documentoMantenimiento in consultaMantenimientos.docs) {
         final datos = documentoMantenimiento.data();
         final mantenimientoUid = documentoMantenimiento.id;
@@ -109,6 +143,16 @@ class NotificacionRepositorie {
         if (tipo == 'prueba') continue;
 
         if (tipo == 'correctivo') {
+          if (estado == 'realizado' &&
+              datos['regularizaPreventivo'] == true &&
+              datos['kilometrajeRealizado'] != null) {
+            preventivosRealizados.add({
+              ...datos,
+              '_uid': mantenimientoUid,
+              '_kmRealizado': _entero(datos['kilometrajeRealizado']),
+            });
+          }
+
           if (estado != 'realizado') {
             final uidAlerta = '${mantenimientoUid}_correctivo_pendiente';
             notificaciones.add(
@@ -152,6 +196,21 @@ class NotificacionRepositorie {
         final kmProgramado = datos['kilometrajeProgramado'] == null
             ? null
             : _entero(datos['kilometrajeProgramado']);
+
+        // Un correctivo completado que regulariza este km ya cerró este
+        // preventivo programado; no debe mantener activa la alerta vencida.
+        if (kmProgramado != null &&
+            kilometrajeVencidoRegularizado != null &&
+            kmProgramado <= kilometrajeVencidoRegularizado) {
+          continue;
+        }
+
+        if (fechaProgramada != null &&
+            fechaRegularizacion != null &&
+            !fechaProgramada.isAfter(fechaRegularizacion)) {
+          continue;
+        }
+
         if (fechaProgramada != null || kmProgramado != null) {
           existePreventivoProgramadoConFechaOKm = true;
         }

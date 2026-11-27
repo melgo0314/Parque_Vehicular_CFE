@@ -117,36 +117,7 @@ class UsuariosViewModel extends ChangeNotifier {
       _finalizarOperacion();
     }
   }
-
-  // Actualiza los datos de un usuario.
-  // Entrada: usuario con el identificador y los datos actualizados.
-  // Salida: true si la actualización termina correctamente; false si ocurre
-  // un error o ya hay otra operación en curso.
-  Future<bool> actualizarUsuario(UserModel usuario) async {
-    if (_cargando) return false;
-
-    _iniciarOperacion();
-
-    try {
-      await _repositorio.actualizarUsuario(usuario);
-      _mensajeExito = 'Los datos del usuario se actualizaron correctamente.';
-      return true;
-    } on FirebaseException catch (error) {
-      debugPrint('Error de Firebase al actualizar usuario: ${error.code}');
-      _mensajeError = error.code == 'permission-denied'
-          ? 'No tienes permiso para actualizar este usuario.'
-          : 'No se pudieron guardar los cambios. Inténtalo de nuevo.';
-      return false;
-    } catch (error) {
-      debugPrint('Error al actualizar usuario: $error');
-      _mensajeError =
-          'No se pudieron guardar los cambios. Inténtalo de nuevo.';
-      return false;
-    } finally {
-      _finalizarOperacion();
-    }
-  }
-
+  
   // Actualiza el perfil de un usuario y, opcionalmente, su contraseña.
   // Entradas: usuario con los datos del perfil y nuevaContrasena opcional.
   // Salida: true si la actualización termina correctamente; false si ocurre
@@ -154,6 +125,8 @@ class UsuariosViewModel extends ChangeNotifier {
   Future<bool> actualizarUsuarioCompleto({
     required UserModel usuario,
     String? nuevaContrasena,
+    Uint8List? archivoLicencia,
+    String? nombreArchivoLicencia,
   }) async {
     if (_cargando) return false;
 
@@ -163,13 +136,31 @@ class UsuariosViewModel extends ChangeNotifier {
       await _repositorio.actualizarUsuarioCompleto(
         usuario: usuario,
         nuevaContrasena: nuevaContrasena,
+        archivoLicencia: archivoLicencia,
+        nombreArchivoLicencia: nombreArchivoLicencia,
       );
 
       _mensajeExito = 'Los datos del usuario se actualizaron correctamente.';
       return true;
     } on FirebaseFunctionsException catch (error) {
-      debugPrint('Error al actualizar usuario: ${error.code}');
+      debugPrint('Error al actualizar usuario en Cloud Functions: $error');
       _mensajeError = _mensajeErrorFunctions(error);
+      return false;
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Error de Firebase al actualizar usuario: '
+        '${error.code} - ${error.message}',
+      );
+      _mensajeError = _mensajeErrorStorage(error.code);
+      return false;
+    } on ArgumentError catch (error) {
+      _mensajeError =
+          error.message?.toString() ?? 'Revisa los datos ingresados.';
+      return false;
+    } on TimeoutException {
+      _mensajeError =
+          'La carga del documento tardó demasiado. '
+          'Revisa tu conexión e inténtalo otra vez.';
       return false;
     } catch (error) {
       debugPrint('Error al actualizar usuario: $error');

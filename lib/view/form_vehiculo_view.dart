@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/vehiculos_viewmodel.dart';
@@ -11,10 +13,7 @@ class FormVehiculoView extends StatefulWidget {
   // Crea el formulario y recibe opcionalmente un vehículo existente.
   // Entradas: key opcional y vehiculo opcional para el modo de edición.
   // Salida: una instancia de FormVehiculoView.
-  const FormVehiculoView({
-    super.key,
-    this.vehiculo,
-  });
+  const FormVehiculoView({super.key, this.vehiculo});
 
   // Crea el estado asociado al formulario.
   // Entrada: ninguna.
@@ -46,9 +45,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
   // Controlador para el año.
   final _anioController = TextEditingController();
 
-  // Controlador para el intervalo preventivo, con valor inicial de 5,000 km.
-  final _intervaloPreventivoController =
-      TextEditingController(text: '5000');
+  // Controlador para el intervalo preventivo, con valor inicial de 10,000 km.
+  final _intervaloPreventivoController = TextEditingController(text: '10000');
 
   // Estado operativo seleccionado para el vehículo.
   String _estadoOperativo = 'operativo';
@@ -82,8 +80,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       _estadoOperativo = estadoOperativo == 'en_taller'
           ? 'en_taller'
           : 'operativo';
-      _intervaloPreventivoController.text =
-          vehiculo.intervaloPreventivoKm.toString();
+      _intervaloPreventivoController.text = vehiculo.intervaloPreventivoKm
+          .toString();
     }
   }
 
@@ -170,10 +168,10 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
       estado: vehiculoOriginal?.estado ?? 'activo',
       estadoOperativo: _estadoOperativo,
       kilometrajeActual: vehiculoOriginal?.kilometrajeActual ?? 0,
-      kilometrajeBasePreventivo:
-          vehiculoOriginal?.kilometrajeBasePreventivo,
-      intervaloPreventivoKm:
-          int.parse(_intervaloPreventivoController.text.trim()),
+      kilometrajeBasePreventivo: vehiculoOriginal?.kilometrajeBasePreventivo,
+      intervaloPreventivoKm: int.parse(
+        _intervaloPreventivoController.text.trim(),
+      ),
       operadorUidActual: vehiculoOriginal?.operadorUidActual ?? '',
     );
 
@@ -235,7 +233,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
             estaDeBaja
                 ? 'El vehículo volverá a aparecer entre las unidades activas.'
                 : 'El vehículo dejará de aparecer entre las unidades activas. '
-                    'Su información e historial se conservarán.',
+                      'Su información e historial se conservarán.',
           ),
           actions: [
             TextButton(
@@ -244,8 +242,9 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor:
-                    estaDeBaja ? AppTheme.cfeGreen : AppTheme.errorRed,
+                backgroundColor: estaDeBaja
+                    ? AppTheme.cfeGreen
+                    : AppTheme.errorRed,
                 minimumSize: const Size(110, 48),
               ),
               onPressed: () => Navigator.pop(dialogContext, true),
@@ -341,6 +340,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
     final estaDeBaja = vehiculo?.estado.toLowerCase() == 'baja';
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -387,9 +387,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                               const SizedBox(height: 6),
                               const Text(
                                 'Completa los datos generales de la unidad.',
-                                style: TextStyle(
-                                  color: AppTheme.secondaryText,
-                                ),
+                                style: TextStyle(color: AppTheme.secondaryText),
                               ),
                               const SizedBox(height: 20),
                               _campo(
@@ -461,8 +459,7 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                                 initialValue: _estadoOperativo,
                                 decoration: const InputDecoration(
                                   labelText: 'Estado operativo',
-                                  prefixIcon:
-                                      Icon(Icons.build_circle_outlined),
+                                  prefixIcon: Icon(Icons.build_circle_outlined),
                                 ),
                                 items: const [
                                   DropdownMenuItem(
@@ -529,8 +526,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                                   _guardando
                                       ? 'Guardando…'
                                       : _esEdicion
-                                          ? 'Guardar cambios'
-                                          : 'Registrar vehículo',
+                                      ? 'Guardar cambios'
+                                      : 'Registrar vehículo',
                                 ),
                               ),
                               if (_esEdicion) ...[
@@ -568,8 +565,8 @@ class _FormVehiculoViewState extends State<FormVehiculoView> {
                                     _cambiandoEstado
                                         ? 'Procesando…'
                                         : estaDeBaja
-                                            ? 'Reactivar vehículo'
-                                            : 'Dar de baja',
+                                        ? 'Reactivar vehículo'
+                                        : 'Dar de baja',
                                   ),
                                 ),
                               ],

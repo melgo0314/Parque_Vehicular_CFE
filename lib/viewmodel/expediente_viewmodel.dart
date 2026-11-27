@@ -1,4 +1,3 @@
-
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,7 +12,7 @@ import '../repositories/expediente_repositorie.dart';
 class ExpedienteViewModel extends ChangeNotifier {
   // Crea el ViewModel con el repositorio proporcionado o uno predeterminado.
   ExpedienteViewModel({ExpedienteRepositorie? repositorio})
-      : _repositorio = repositorio ?? ExpedienteRepositorie();
+    : _repositorio = repositorio ?? ExpedienteRepositorie();
 
   // Repositorio encargado de comunicarse con Firebase.
   final ExpedienteRepositorie _repositorio;
@@ -66,6 +65,24 @@ class ExpedienteViewModel extends ChangeNotifier {
   // Obtiene los expedientes registrados para un vehículo.
   Stream<List<ExpedienteModel>> obtenerExpedientes(String vehiculoUid) {
     return _repositorio.obtenerExpedientes(vehiculoUid);
+  }
+
+  // Obtiene los bytes de un documento para previsualizarlo en la aplicación.
+  Future<Uint8List> descargarArchivo(ExpedienteModel expediente) async {
+    try {
+      return await _repositorio.descargarArchivo(expediente);
+    } on FirebaseException catch (error) {
+      throw StateError(_mensajeFirebase(error));
+    }
+  }
+
+  // Recupera una URL vigente para previsualizar en Flutter Web.
+  Future<String> obtenerUrlVisualizacion(ExpedienteModel expediente) async {
+    try {
+      return await _repositorio.obtenerUrlArchivo(expediente);
+    } on FirebaseException catch (error) {
+      throw StateError(_mensajeFirebase(error));
+    }
   }
 
   // Registra un expediente y su archivo.
@@ -197,9 +214,16 @@ class ExpedienteViewModel extends ChangeNotifier {
         return 'Firebase no está disponible. Revisa tu conexión.';
       case 'object-not-found':
         return 'No se encontró el archivo solicitado.';
+      case 'unauthorized':
+      case 'permission-denied':
+        return 'Firebase Storage no permite leer este archivo. Revisa las reglas '
+            'de acceso del bucket.';
+      case 'canceled':
+        return 'La descarga del documento se canceló.';
       default:
         debugPrint('Error Firebase ${error.code}: ${error.message}');
-        return 'Firebase no pudo completar la operación.';
+        return 'Firebase Storage (${error.code}): '
+            '${error.message ?? 'sin detalle adicional'}';
     }
   }
 }

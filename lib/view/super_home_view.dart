@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
 
@@ -61,6 +63,7 @@ class SuperHomeView extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       body: SafeArea(
         child: Column(
@@ -164,28 +167,19 @@ class SuperHomeView extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Notificaciones',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 icon: const Icon(
                   Icons.notifications_none,
                   color: AppTheme.pureWhite,
                   size: 26,
                 ),
                 onPressed: () {
-                  Navigator.pushNamed(
-                    context,
-                    AppRoutes.notificaciones,
-                  );
+                  Navigator.pushNamed(context, AppRoutes.notificaciones);
                 },
               ),
               IconButton(
                 tooltip: 'Cerrar sesión',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 icon: const Icon(
                   Icons.logout,
                   color: AppTheme.pureWhite,
@@ -208,10 +202,8 @@ class SuperHomeView extends StatelessWidget {
 
                 if (datos != null) {
                   final nombre = datos['nombre']?.toString().trim() ?? '';
-                  final apellidoP =
-                      datos['apellidoP']?.toString().trim() ?? '';
-                  final apellidoM =
-                      datos['apellidoM']?.toString().trim() ?? '';
+                  final apellidoP = datos['apellidoP']?.toString().trim() ?? '';
+                  final apellidoM = datos['apellidoM']?.toString().trim() ?? '';
 
                   final nombreCompleto = [
                     nombre,
@@ -239,10 +231,7 @@ class SuperHomeView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 136,
-                    child: _Rolsuper(),
-                  ),
+                  const SizedBox(width: 136, child: _Rolsuper()),
                 ],
               );
             },
@@ -275,11 +264,7 @@ class SuperHomeView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(
-                icono,
-                color: AppTheme.cfeGreen,
-                size: 24,
-              ),
+              Icon(icono, color: AppTheme.cfeGreen, size: 24),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -331,10 +316,7 @@ class _Rolsuper extends StatelessWidget {
               'SuperUsuario',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],

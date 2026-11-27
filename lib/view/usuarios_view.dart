@@ -1,43 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../viewmodel/usuarios_viewmodel.dart';
 import 'form_usuario_view.dart';
+import 'widgets/expediente_web_viewer.dart';
 
-// Pantalla para consultar y administrar usuarios.
 class UsuariosView extends StatefulWidget {
-  // Crea la pantalla de usuarios.
-  // Entrada: key opcional para identificar el widget.
-  // Salida: una instancia de UsuariosView.
   const UsuariosView({super.key});
 
-  // Crea el estado asociado a la pantalla.
-  // Entrada: ninguna.
-  // Salida: el estado que administra la búsqueda, filtros y acciones.
   @override
   State<UsuariosView> createState() => _UsuariosViewState();
 }
 
-// Estado y comportamiento de la pantalla de usuarios.
 class _UsuariosViewState extends State<UsuariosView> {
-  // ViewModel que consulta y administra usuarios.
   final UsuariosViewModel _viewModel = UsuariosViewModel();
-
-  // Controlador del campo de búsqueda.
   final TextEditingController _busquedaController = TextEditingController();
 
-  // Texto escrito en el campo de búsqueda.
   String _busqueda = '';
-
-  // Rol seleccionado para filtrar la lista.
   String _rolFiltro = 'todos';
-
-  // Identificador del usuario que se está eliminando.
   String? _uidEliminando;
 
-  // Libera el controlador y el ViewModel al cerrar la pantalla.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   @override
   void dispose() {
     _busquedaController.dispose();
@@ -45,9 +30,6 @@ class _UsuariosViewState extends State<UsuariosView> {
     super.dispose();
   }
 
-  // Convierte el identificador interno de un rol en una etiqueta legible.
-  // Entrada: rol guardado en el perfil del usuario.
-  // Salida: nombre del rol para mostrar en la interfaz.
   String _nombreRol(String rol) {
     switch (rol.trim().toLowerCase()) {
       case 'administrador':
@@ -61,9 +43,6 @@ class _UsuariosViewState extends State<UsuariosView> {
     }
   }
 
-  // Obtiene las iniciales del nombre y primer apellido del usuario.
-  // Entrada: usuario del que se obtendrán las iniciales.
-  // Salida: iniciales en mayúsculas o un signo de interrogación si no hay nombre.
   String _iniciales(UserModel usuario) {
     final nombre = usuario.nombre.trim();
     final apellido = usuario.apellidoP.trim();
@@ -78,9 +57,6 @@ class _UsuariosViewState extends State<UsuariosView> {
     return '$inicialNombre$inicialApellido';
   }
 
-  // Muestra un mensaje flotante de éxito o error.
-  // Entradas: mensaje que se presentará y error para determinar el color.
-  // Salida: ninguna; muestra un SnackBar si la pantalla sigue activa.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     if (!mounted) return;
 
@@ -95,22 +71,123 @@ class _UsuariosViewState extends State<UsuariosView> {
       );
   }
 
-  // Abre el formulario para crear o editar un usuario.
-  // Entrada: usuario opcional; si se proporciona, se abrirá en modo edición.
-  // Salida: ninguna; el flujo de Firestore actualiza la lista automáticamente.
   Future<void> _abrirFormulario({UserModel? usuario}) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => FormUsuarioView(usuario: usuario),
-      ),
+      MaterialPageRoute(builder: (_) => FormUsuarioView(usuario: usuario)),
     );
-
-    // El flujo de Firestore actualiza la lista automáticamente.
   }
 
-  // Solicita confirmación y elimina el usuario seleccionado.
-  // Entrada: usuario que se desea eliminar.
-  // Salida: ninguna; muestra el resultado de la eliminación.
+  void _verLicencia(UserModel usuario) {
+    final url = usuario.urlLicencia.trim();
+
+    if (url.isEmpty) {
+      _mostrarMensaje(
+        'Este usuario no tiene una licencia cargada.',
+        error: true,
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: AppTheme.pureWhite,
+          surfaceTintColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 850, maxHeight: 700),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.cfeGreen,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.badge_outlined,
+                        color: AppTheme.pureWhite,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Licencia de ${usuario.nombreCompleto}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.pureWhite,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Cerrar',
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(
+                          Icons.close,
+                          color: AppTheme.pureWhite,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    color: AppTheme.pearlWhite,
+                    padding: const EdgeInsets.all(12),
+                    child: kIsWeb
+                        ? crearExpedienteWebViewer(url, esImagen: true)
+                        : InteractiveViewer(
+                            minScale: 0.8,
+                            maxScale: 4,
+                            child: Image.network(
+                              url,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppTheme.cfeGreen,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                debugPrint('Error al cargar licencia: $error');
+
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: SelectableText(
+                                      'No se pudo mostrar la licencia. '
+                                      'Comprueba el enlace de Firebase Storage.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _confirmarEliminacion(UserModel usuario) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -128,9 +205,7 @@ class _UsuariosViewState extends State<UsuariosView> {
           ),
           actions: [
             TextButton(
-              style: TextButton.styleFrom(
-                minimumSize: const Size(88, 48),
-              ),
+              style: TextButton.styleFrom(minimumSize: const Size(88, 48)),
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancelar'),
             ),
@@ -166,11 +241,9 @@ class _UsuariosViewState extends State<UsuariosView> {
     );
   }
 
-  // Construye la tarjeta con los datos y acciones de un usuario.
-  // Entrada: usuario que se mostrará.
-  // Salida: una tarjeta con sus datos, rol y botones para editar o eliminar.
   Widget _tarjetaUsuario(UserModel usuario) {
     final eliminando = _uidEliminando == usuario.uid;
+    final tieneLicencia = usuario.urlLicencia.trim().isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -227,10 +300,7 @@ class _UsuariosViewState extends State<UsuariosView> {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 112),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
                 decoration: BoxDecoration(
                   color: AppTheme.roleSurface,
                   borderRadius: BorderRadius.circular(20),
@@ -248,34 +318,75 @@ class _UsuariosViewState extends State<UsuariosView> {
                 ),
               ),
             ),
-            const SizedBox(width: 2),
-            IconButton(
-              tooltip: 'Editar ${usuario.nombreCompleto}',
-              constraints: const BoxConstraints(
-                minWidth: 48,
-                minHeight: 48,
-              ),
-              onPressed:
-                  eliminando ? null : () => _abrirFormulario(usuario: usuario),
-              icon: const Icon(Icons.edit_outlined),
-              color: AppTheme.cfeGreen,
-            ),
-            IconButton(
-              tooltip: 'Eliminar ${usuario.nombreCompleto}',
-              constraints: const BoxConstraints(
-                minWidth: 48,
-                minHeight: 48,
-              ),
-              onPressed:
-                  eliminando ? null : () => _confirmarEliminacion(usuario),
+            PopupMenuButton<String>(
+              tooltip: 'Acciones de ${usuario.nombreCompleto}',
+              enabled: !eliminando,
+              color: AppTheme.pureWhite,
+              onSelected: (accion) {
+                switch (accion) {
+                  case 'licencia':
+                    _verLicencia(usuario);
+                    break;
+                  case 'editar':
+                    _abrirFormulario(usuario: usuario);
+                    break;
+                  case 'eliminar':
+                    _confirmarEliminacion(usuario);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                if (tieneLicencia)
+                  const PopupMenuItem<String>(
+                    value: 'licencia',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.badge_outlined,
+                          color: AppTheme.cfeGreen,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text('Ver licencia'),
+                      ],
+                    ),
+                  ),
+                const PopupMenuItem<String>(
+                  value: 'editar',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_outlined,
+                        color: AppTheme.cfeGreen,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Editar'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'eliminar',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete_outline,
+                        color: AppTheme.errorRed,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Eliminar'),
+                    ],
+                  ),
+                ),
+              ],
               icon: eliminando
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.delete_outline),
-              color: AppTheme.errorRed,
+                  : const Icon(Icons.more_vert),
             ),
           ],
         ),
@@ -283,9 +394,6 @@ class _UsuariosViewState extends State<UsuariosView> {
     );
   }
 
-  // Construye el selector para filtrar usuarios por rol.
-  // Entrada: ninguna; utiliza y actualiza el rol seleccionado.
-  // Salida: un campo desplegable con las opciones de rol.
   Widget _filtroRol() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -294,28 +402,16 @@ class _UsuariosViewState extends State<UsuariosView> {
         decoration: const InputDecoration(
           labelText: 'Filtrar por rol',
           prefixIcon: Icon(Icons.filter_list),
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 8,
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         ),
         items: const [
-          DropdownMenuItem(
-            value: 'todos',
-            child: Text('Todos los roles'),
-          ),
+          DropdownMenuItem(value: 'todos', child: Text('Todos los roles')),
           DropdownMenuItem(
             value: 'administrador',
             child: Text('Administrador'),
           ),
-          DropdownMenuItem(
-            value: 'operador',
-            child: Text('Operador'),
-          ),
-          DropdownMenuItem(
-            value: 'superusuario',
-            child: Text('Superusuario'),
-          ),
+          DropdownMenuItem(value: 'operador', child: Text('Operador')),
+          DropdownMenuItem(value: 'superusuario', child: Text('Superusuario')),
         ],
         onChanged: (valor) {
           if (valor != null) {
@@ -326,14 +422,12 @@ class _UsuariosViewState extends State<UsuariosView> {
     );
   }
 
-  // Construye la pantalla con búsqueda, filtro y lista de usuarios.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets de la pantalla de usuarios.
   @override
   Widget build(BuildContext context) {
     final String? rol = _rolFiltro == 'todos' ? null : _rolFiltro;
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -386,9 +480,7 @@ class _UsuariosViewState extends State<UsuariosView> {
                             ),
                       filled: true,
                       fillColor: AppTheme.pureWhite,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
                         borderSide: const BorderSide(color: AppTheme.border),
@@ -440,8 +532,7 @@ class _UsuariosViewState extends State<UsuariosView> {
                         );
                       }
 
-                      if (snapshot.connectionState ==
-                              ConnectionState.waiting &&
+                      if (snapshot.connectionState == ConnectionState.waiting &&
                           !snapshot.hasData) {
                         return const Center(
                           child: CircularProgressIndicator(

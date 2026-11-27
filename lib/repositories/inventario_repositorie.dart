@@ -89,6 +89,23 @@ class InventarioRepositorie {
     });
   }
 
+  Stream<List<ArticuloModel>> obtenerTodosArticulos() {
+  return _db.collection('articulo').snapshots().map((resultado) {
+    final articulos = resultado.docs.map((documento) {
+      return ArticuloModel.fromMap(
+        documento.data(),
+        documento.id,
+      );
+    }).toList();
+
+    articulos.sort(
+      (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+    );
+
+    return articulos;
+  });
+}
+
   // Consultar el checklist de un vehículo.
   Stream<List<InventarioModel>> obtenerInventarioVehiculo(
     String vehiculoUid,

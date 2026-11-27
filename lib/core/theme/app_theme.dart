@@ -144,7 +144,8 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: cfeGreen,
           foregroundColor: pureWhite,
-          minimumSize: const Size.fromHeight(56),
+          minimumSize: const Size(double.infinity, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -160,7 +161,8 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: cfeGreen,
           foregroundColor: pureWhite,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(double.infinity, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -175,7 +177,8 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: cfeGreen,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(double.infinity, 46),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           side: const BorderSide(color: cfeGreen),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

@@ -1,7 +1,9 @@
-
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 import 'package:flutter/services.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/kilometraje_model.dart';
 import '../models/vehiculos_model.dart';
@@ -45,13 +47,11 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
   bool get _estaIniciando => widget.registro == null;
 
   bool get _estaFinalizando {
-    return widget.registro != null &&
-        widget.registro!.kilometrajeFinal == null;
+    return widget.registro != null && widget.registro!.kilometrajeFinal == null;
   }
 
   bool get _estaEditando {
-    return widget.registro != null &&
-        widget.registro!.kilometrajeFinal != null;
+    return widget.registro != null && widget.registro!.kilometrajeFinal != null;
   }
 
   // Vehículos con identificador válido.
@@ -83,17 +83,14 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
       _fecha = registro.fecha;
       _ultimoKilometraje = registro.kilometrajeIni;
 
-      _kilometrajeController.text =
-          registro.kilometrajeFinal?.toString() ?? '';
+      _kilometrajeController.text = registro.kilometrajeFinal?.toString() ?? '';
 
       _observacionesController.text = registro.observaciones;
     } else if (_vehiculosDisponibles.isNotEmpty) {
       final uidInicial = widget.vehiculoUidInicial;
 
       if (uidInicial != null &&
-          _vehiculosDisponibles.any(
-            (vehiculo) => vehiculo.uid == uidInicial,
-          )) {
+          _vehiculosDisponibles.any((vehiculo) => vehiculo.uid == uidInicial)) {
         _vehiculoUid = uidInicial;
       } else {
         _vehiculoUid = _vehiculosDisponibles.first.uid;
@@ -128,47 +125,57 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     _suscripcionRegistros = _viewModel
         .obtenerRegistros(vehiculoUid: vehiculo.uid)
         .listen(
-      (registros) {
-        final finalizados = registros.where((registro) {
-          return registro.kilometrajeFinal != null;
-        }).toList();
+          (registros) {
+            final finalizados = registros.where((registro) {
+              return registro.kilometrajeFinal != null;
+            }).toList();
 
-        finalizados.sort((a, b) => b.fecha.compareTo(a.fecha));
+            finalizados.sort((a, b) => b.fecha.compareTo(a.fecha));
 
-        int ultimo = vehiculo.kilometrajeActual;
+            int ultimo = vehiculo.kilometrajeActual;
 
-        if (finalizados.isNotEmpty &&
-            finalizados.first.kilometrajeFinal! > ultimo) {
-          ultimo = finalizados.first.kilometrajeFinal!;
-        }
+            if (finalizados.isNotEmpty &&
+                finalizados.first.kilometrajeFinal! > ultimo) {
+              ultimo = finalizados.first.kilometrajeFinal!;
+            }
 
-        if (!mounted) return;
+            if (!mounted) return;
 
-        setState(() {
-          _ultimoKilometraje = ultimo;
-          _cargandoKilometraje = false;
+            setState(() {
+              _ultimoKilometraje = ultimo;
+              _cargandoKilometraje = false;
 
-          // Se coloca la última lectura como sugerencia inicial.
-          if (_kilometrajeController.text.isEmpty) {
-            _kilometrajeController.text = ultimo.toString();
-          }
-        });
-      },
-      onError: (_) {
-        if (!mounted) return;
+              // Se coloca la última lectura como sugerencia inicial.
+              if (_kilometrajeController.text.isEmpty) {
+                _kilometrajeController.text = ultimo.toString();
+              }
+            });
+          },
+          onError: (_) {
+            if (!mounted) return;
 
-        setState(() {
-          _cargandoKilometraje = false;
-        });
-      },
-    );
+            setState(() {
+              _cargandoKilometraje = false;
+            });
+          },
+        );
   }
 
   // Da formato a una fecha.
   String _formatearFecha(DateTime fecha) {
     const meses = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
     ];
 
     final dia = fecha.day.toString().padLeft(2, '0');
@@ -213,9 +220,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
 
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final kilometraje = int.tryParse(
-      _kilometrajeController.text.trim(),
-    );
+    final kilometraje = int.tryParse(_kilometrajeController.text.trim());
 
     if (kilometraje == null) return;
 
@@ -302,9 +307,9 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
   // Formatea números con separadores de miles.
   String _formatearNumero(int numero) {
     return numero.toString().replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (coincidencia) => '${coincidencia[1]},',
-        );
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (coincidencia) => '${coincidencia[1]},',
+    );
   }
 
   // Muestra el formulario sin vehículos.
@@ -322,7 +327,6 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
 
   // Construye los campos del formulario.
   Widget _contenidoFormulario() {
-
     final tituloKilometraje = _estaIniciando
         ? 'Kilometraje inicial'
         : 'Kilometraje final';
@@ -330,10 +334,10 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     final tituloBoton = _guardando
         ? 'Guardando…'
         : _estaIniciando
-            ? 'Registrar Kilometraje'
-            : _estaFinalizando
-                ? 'Finalizar Kilometraje'
-                : 'Guardar cambios';
+        ? 'Registrar Kilometraje'
+        : _estaFinalizando
+        ? 'Finalizar Kilometraje'
+        : 'Guardar cambios';
 
     return Form(
       key: _formKey,
@@ -459,9 +463,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             enabled: !_guardando && !_cargandoKilometraje,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.next,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: InputDecoration(
               hintText: _estaIniciando
                   ? 'Ingresa la lectura al iniciar'
@@ -477,17 +479,11 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
             _cargandoKilometraje
                 ? 'Consultando el último kilometraje...'
                 : _estaIniciando
-                    ? 'Última lectura registrada: '
-                        '${_formatearNumero(_ultimoKilometraje)} km'
-                    : 'Distancia recorrida: '
-                        '${_formatearNumero(
-                            (int.tryParse(_kilometrajeController.text) ?? 0) -
-                                _ultimoKilometraje,
-                          )} km',
-            style: const TextStyle(
-              color: AppTheme.secondaryText,
-              fontSize: 13,
-            ),
+                ? 'Última lectura registrada: '
+                      '${_formatearNumero(_ultimoKilometraje)} km'
+                : 'Distancia recorrida: '
+                      '${_formatearNumero((int.tryParse(_kilometrajeController.text) ?? 0) - _ultimoKilometraje)} km',
+            style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13),
           ),
 
           const SizedBox(height: 16),
@@ -537,9 +533,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
           SizedBox(
             height: 56,
             child: FilledButton.icon(
-              onPressed: _guardando || _cargandoKilometraje
-                  ? null
-                  : _guardar,
+              onPressed: _guardando || _cargandoKilometraje ? null : _guardar,
               icon: _guardando
                   ? const SizedBox(
                       width: 20,
@@ -553,8 +547,8 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
                       _estaIniciando
                           ? Icons.play_arrow
                           : _estaFinalizando
-                              ? Icons.flag_outlined
-                              : Icons.check,
+                          ? Icons.flag_outlined
+                          : Icons.check,
                     ),
               label: Text(
                 tituloBoton,
@@ -568,8 +562,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
           SizedBox(
             height: 52,
             child: OutlinedButton(
-              onPressed:
-                  _guardando ? null : () => Navigator.of(context).pop(),
+              onPressed: _guardando ? null : () => Navigator.of(context).pop(),
               child: const Text('Cancelar'),
             ),
           ),
@@ -583,11 +576,12 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     final titulo = _estaIniciando
         ? 'Iniciar Kilometraje'
         : _estaFinalizando
-            ? 'Finalizar Kilometraje'
-            : 'Editar kilometraje';
+        ? 'Finalizar Kilometraje'
+        : 'Editar kilometraje';
 
     if (_vehiculosDisponibles.isEmpty) {
       return Scaffold(
+        bottomNavigationBar: const InicioFooter(),
         backgroundColor: AppTheme.pearlWhite,
         appBar: AppBar(
           backgroundColor: AppTheme.cfeGreen,
@@ -599,6 +593,7 @@ class _FormKilometrajeViewState extends State<FormKilometrajeView> {
     }
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,

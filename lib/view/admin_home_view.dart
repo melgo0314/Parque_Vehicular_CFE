@@ -1,7 +1,7 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
@@ -19,8 +19,7 @@ class AdminHomeView extends StatefulWidget {
 
 class _AdminHomeViewState extends State<AdminHomeView> {
   // ViewModel encargado de obtener las notificaciones.
-  final NotificacionViewmodel _notificacionViewmodel =
-      NotificacionViewmodel();
+  final NotificacionViewmodel _notificacionViewmodel = NotificacionViewmodel();
 
   @override
   void initState() {
@@ -63,9 +62,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
   }
 
   // Cuenta vehículos diferentes que cumplen una condición.
-  int _contarVehiculosUnicos(
-    bool Function(NotificacionModel) condicion,
-  ) {
+  int _contarVehiculosUnicos(bool Function(NotificacionModel) condicion) {
     return _notificacionViewmodel.notificaciones
         .where(condicion)
         .map((notificacion) => notificacion.vehiculoUid)
@@ -90,9 +87,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'No se pudo cerrar la sesión. Intenta nuevamente.',
-          ),
+          content: Text('No se pudo cerrar la sesión. Intenta nuevamente.'),
           backgroundColor: AppTheme.errorRed,
         ),
       );
@@ -101,10 +96,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
 
   // Abre las notificaciones y actualiza los datos al regresar.
   void _abrirNotificaciones(BuildContext context) {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.notificaciones,
-    ).then((_) {
+    Navigator.pushNamed(context, AppRoutes.notificaciones).then((_) {
       if (mounted) {
         _notificacionViewmodel.obtenerNotificaciones();
       }
@@ -127,6 +119,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       body: SafeArea(
         child: Column(
@@ -247,10 +240,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                               Icons.analytics_outlined,
                               'Reportes',
                               () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.reporte,
-                                );
+                                Navigator.pushNamed(context, AppRoutes.reporte);
                               },
                             ),
                             _tarjetaModulo(
@@ -258,10 +248,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                               Icons.dns_outlined,
                               'Respaldo de BD',
                               () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.bd,
-                                );
+                                Navigator.pushNamed(context, AppRoutes.bd);
                               },
                             ),
                           ],
@@ -319,10 +306,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
               // Campana con el contador de notificaciones no leídas.
               IconButton(
                 tooltip: 'Notificaciones',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 icon: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -373,10 +357,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
               // Botón para cerrar sesión.
               IconButton(
                 tooltip: 'Cerrar sesión',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 icon: const Icon(
                   Icons.logout,
                   color: AppTheme.pureWhite,
@@ -400,12 +381,9 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                 final datos = snapshot.data!.data();
 
                 if (datos != null) {
-                  final nombre =
-                      datos['nombre']?.toString().trim() ?? '';
-                  final apellidoP =
-                      datos['apellidoP']?.toString().trim() ?? '';
-                  final apellidoM =
-                      datos['apellidoM']?.toString().trim() ?? '';
+                  final nombre = datos['nombre']?.toString().trim() ?? '';
+                  final apellidoP = datos['apellidoP']?.toString().trim() ?? '';
+                  final apellidoM = datos['apellidoM']?.toString().trim() ?? '';
 
                   final nombreCompleto = [
                     nombre,
@@ -433,10 +411,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 136,
-                    child: _RolAdministrador(),
-                  ),
+                  const SizedBox(width: 136, child: _RolAdministrador()),
                 ],
               );
             },
@@ -491,8 +466,8 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                   _notificacionViewmodel.cargando
                       ? '...'
                       : _notificacionViewmodel.error != null
-                          ? '-'
-                          : '$totalProximos',
+                      ? '-'
+                      : '$totalProximos',
                   'Próximos',
                   AppTheme.alertOrange,
                 ),
@@ -503,8 +478,8 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                   _notificacionViewmodel.cargando
                       ? '...'
                       : _notificacionViewmodel.error != null
-                          ? '-'
-                          : '$totalVencidos',
+                      ? '-'
+                      : '$totalVencidos',
                   'Vencidos',
                   AppTheme.errorRed,
                 ),
@@ -515,8 +490,8 @@ class _AdminHomeViewState extends State<AdminHomeView> {
                   _notificacionViewmodel.cargando
                       ? '...'
                       : _notificacionViewmodel.error != null
-                          ? '-'
-                          : '$totalCorrectivos',
+                      ? '-'
+                      : '$totalCorrectivos',
                   'En taller',
                   AppTheme.infoBlue,
                 ),
@@ -580,11 +555,7 @@ class _AdminHomeViewState extends State<AdminHomeView> {
             minLeadingWidth: 0,
             horizontalTitleGap: 10,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            leading: Icon(
-              icono,
-              color: AppTheme.cfeGreen,
-              size: 24,
-            ),
+            leading: Icon(icono, color: AppTheme.cfeGreen, size: 24),
             title: Text(
               etiqueta,
               maxLines: 2,
@@ -612,8 +583,7 @@ class _RolAdministrador extends StatelessWidget {
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 48),
         maximumSize: const Size(136, 48),
-        disabledBackgroundColor:
-            AppTheme.pureWhite.withValues(alpha: 0.15),
+        disabledBackgroundColor: AppTheme.pureWhite.withValues(alpha: 0.15),
         disabledForegroundColor: AppTheme.pureWhite,
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
@@ -627,10 +597,7 @@ class _RolAdministrador extends StatelessWidget {
               'Administrador',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],

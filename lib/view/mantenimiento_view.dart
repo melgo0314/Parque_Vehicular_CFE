@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
@@ -14,10 +15,7 @@ import 'form_mantenimiento_view.dart';
 class MantenimientoView extends StatefulWidget {
   final List<dynamic> vehiculos;
 
-  const MantenimientoView({
-    super.key,
-    this.vehiculos = const [],
-  });
+  const MantenimientoView({super.key, this.vehiculos = const []});
 
   @override
   State<MantenimientoView> createState() => _MantenimientoViewState();
@@ -43,8 +41,9 @@ class _MantenimientoViewState extends State<MantenimientoView> {
   void initState() {
     super.initState();
 
-    final vehiculosRecibidos =
-        widget.vehiculos.whereType<VehiculoModel>().toList();
+    final vehiculosRecibidos = widget.vehiculos
+        .whereType<VehiculoModel>()
+        .toList();
 
     if (vehiculosRecibidos.length == 1) {
       _vehiculoSeleccionadoUid = vehiculosRecibidos.first.uid;
@@ -193,9 +192,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
     );
   }
 
-  Future<void> _confirmarEliminacion(
-    MantenimientoModel mantenimiento,
-  ) async {
+  Future<void> _confirmarEliminacion(MantenimientoModel mantenimiento) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -225,9 +222,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
 
     if (confirmar != true || !mounted) return;
 
-    final eliminado = await _viewModel.eliminarMantenimiento(
-      mantenimiento.uid,
-    );
+    final eliminado = await _viewModel.eliminarMantenimiento(mantenimiento.uid);
 
     if (!mounted) return;
 
@@ -253,33 +248,68 @@ class _MantenimientoViewState extends State<MantenimientoView> {
   ) {
     final intervalo = vehiculo.intervaloPreventivo;
 
+    // Un correctivo puede cerrar un preventivo vencido. Guardamos el km
+    // vencido y el km real; los preventivos programados anteriores al km
+    // regularizado ya no deben seguir generando el aviso.
+    final correctivosQueRegularizan = mantenimientos.where((mantenimiento) {
+      return mantenimiento.tipoMantenimiento == 'correctivo' &&
+          mantenimiento.regularizaPreventivo &&
+          mantenimiento.estaRealizado &&
+          mantenimiento.kilometrajeProgramado != null &&
+          mantenimiento.kilometrajeRealizado != null;
+    }).toList();
+
+    correctivosQueRegularizan.sort((a, b) {
+      final fechaA = a.fechaRealizado;
+      final fechaB = b.fechaRealizado;
+      if (fechaA != null && fechaB != null) return fechaB.compareTo(fechaA);
+      return b.kilometrajeRealizado!.compareTo(a.kilometrajeRealizado!);
+    });
+
+    final correctivoRegularizador = correctivosQueRegularizan.isEmpty
+        ? null
+        : correctivosQueRegularizan.first;
+    final kilometrajeVencidoRegularizado = correctivoRegularizador == null
+        ? null
+        : correctivoRegularizador.kilometrajeProgramado;
+    final fechaRegularizacion = correctivoRegularizador?.fechaRealizado;
+
     final programados = mantenimientos.where((mantenimiento) {
       return mantenimiento.tipoMantenimiento == 'preventivo' &&
           !mantenimiento.estaRealizado &&
           mantenimiento.kilometrajeProgramado != null &&
-          mantenimiento.kilometrajeProgramado! > 0;
+          mantenimiento.kilometrajeProgramado! > 0 &&
+          (kilometrajeVencidoRegularizado == null ||
+              mantenimiento.kilometrajeProgramado! >
+                  kilometrajeVencidoRegularizado) &&
+          (fechaRegularizacion == null ||
+              mantenimiento.fechaProgramada == null ||
+              mantenimiento.fechaProgramada!.isAfter(fechaRegularizacion));
     }).toList();
 
     if (programados.isNotEmpty) {
       programados.sort(
-        (a, b) => a.kilometrajeProgramado!
-            .compareTo(b.kilometrajeProgramado!),
+        (a, b) => a.kilometrajeProgramado!.compareTo(b.kilometrajeProgramado!),
       );
 
       return programados.first.kilometrajeProgramado;
     }
 
     final realizados = mantenimientos.where((mantenimiento) {
-      return mantenimiento.tipoMantenimiento == 'preventivo' &&
+      final preventivoRealizado =
+          mantenimiento.tipoMantenimiento == 'preventivo';
+      final correctivoRegularizado =
+          mantenimiento.tipoMantenimiento == 'correctivo' &&
+          mantenimiento.regularizaPreventivo;
+
+      return (preventivoRealizado || correctivoRegularizado) &&
           mantenimiento.estaRealizado &&
           mantenimiento.kilometrajeRealizado != null;
     }).toList();
 
     if (realizados.isNotEmpty && intervalo > 0) {
       realizados.sort((a, b) {
-        return b.kilometrajeRealizado!.compareTo(
-          a.kilometrajeRealizado!,
-        );
+        return b.kilometrajeRealizado!.compareTo(a.kilometrajeRealizado!);
       });
 
       return realizados.first.kilometrajeRealizado! + intervalo;
@@ -327,9 +357,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                         ? 'Mantenimiento preventivo vencido'
                         : 'Próximo preventivo: $proximo km',
                     style: TextStyle(
-                      color: vencido
-                          ? AppTheme.errorRed
-                          : AppTheme.warningText,
+                      color: vencido ? AppTheme.errorRed : AppTheme.warningText,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -337,14 +365,12 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                   Text(
                     vencido
                         ? 'Se excedió por ${faltan.abs()} km · '
-                            'kilometraje actual: '
-                            '${vehiculo.kilometrajeActual} km'
+                              'kilometraje actual: '
+                              '${vehiculo.kilometrajeActual} km'
                         : 'Faltan $faltan km · kilometraje actual: '
-                            '${vehiculo.kilometrajeActual} km',
+                              '${vehiculo.kilometrajeActual} km',
                     style: TextStyle(
-                      color: vencido
-                          ? AppTheme.errorRed
-                          : AppTheme.warningText,
+                      color: vencido ? AppTheme.errorRed : AppTheme.warningText,
                     ),
                   ),
                 ],
@@ -395,18 +421,14 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                       backgroundColor: AppTheme.roleSurface,
                       label: Text(
                         _nombreModulo(mantenimiento.modulo),
-                        style: const TextStyle(
-                          color: AppTheme.primaryText,
-                        ),
+                        style: const TextStyle(color: AppTheme.primaryText),
                       ),
                     ),
                   ],
                 ),
                 Text(
                   _fecha(mantenimiento.fechaRealizado),
-                  style: const TextStyle(
-                    color: AppTheme.secondaryText,
-                  ),
+                  style: const TextStyle(color: AppTheme.secondaryText),
                 ),
               ],
             ),
@@ -416,9 +438,9 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                   ? 'Mantenimiento Programado'
                   : mantenimiento.trabajoRealizado,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.primaryText,
-                    fontWeight: FontWeight.bold,
-                  ),
+                color: AppTheme.primaryText,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             if (mantenimiento.categoriaPrueba.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -430,9 +452,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
             if (mantenimiento.detalleRefacciones.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Refacciones: ${mantenimiento.detalleRefacciones.map(
-                  (pieza) => '${pieza.nombre} ×${pieza.cantidad}',
-                ).join(', ')}',
+                'Refacciones: ${mantenimiento.detalleRefacciones.map((pieza) => '${pieza.nombre} ×${pieza.cantidad}').join(', ')}',
                 style: const TextStyle(color: AppTheme.secondaryText),
               ),
             ],
@@ -441,9 +461,19 @@ class _MantenimientoViewState extends State<MantenimientoView> {
               spacing: 20,
               runSpacing: 6,
               children: [
+                if (mantenimiento.regularizaPreventivo &&
+                    mantenimiento.kilometrajeProgramado != null)
+                  Text(
+                    'Preventivo vencía: '
+                    '${mantenimiento.kilometrajeProgramado} km',
+                    style: const TextStyle(color: AppTheme.secondaryText),
+                  ),
                 if (mantenimiento.kilometrajeRealizado != null)
                   Text(
-                    '${mantenimiento.kilometrajeRealizado} km',
+                    mantenimiento.regularizaPreventivo
+                        ? 'Realizado a: '
+                              '${mantenimiento.kilometrajeRealizado} km'
+                        : '${mantenimiento.kilometrajeRealizado} km',
                     style: const TextStyle(
                       color: AppTheme.primaryText,
                       fontWeight: FontWeight.w600,
@@ -452,9 +482,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                 if (mantenimiento.horometro != null)
                   Text(
                     '${mantenimiento.horometro} h de horómetro',
-                    style: const TextStyle(
-                      color: AppTheme.secondaryText,
-                    ),
+                    style: const TextStyle(color: AppTheme.secondaryText),
                   ),
                 if (mantenimiento.costo > 0)
                   Text(
@@ -467,9 +495,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                 if (mantenimiento.proveedor.isNotEmpty)
                   Text(
                     'Responsable: ${mantenimiento.proveedor}',
-                    style: const TextStyle(
-                      color: AppTheme.secondaryText,
-                    ),
+                    style: const TextStyle(color: AppTheme.secondaryText),
                   ),
               ],
             ),
@@ -675,9 +701,7 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                             const SizedBox(height: 8),
                             Text(
                               'Historial de mantenimientos',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: AppTheme.primaryText,
                                     fontWeight: FontWeight.bold,
@@ -768,10 +792,12 @@ class _MantenimientoViewState extends State<MantenimientoView> {
               }
             }
 
-            vehiculoSeleccionado ??=
-                vehiculos.length == 1 ? vehiculos.first : null;
+            vehiculoSeleccionado ??= vehiculos.length == 1
+                ? vehiculos.first
+                : null;
 
             return Scaffold(
+              bottomNavigationBar: const InicioFooter(),
               appBar: AppBar(
                 leading: IconButton(
                   tooltip: 'Regresar',
@@ -783,9 +809,8 @@ class _MantenimientoViewState extends State<MantenimientoView> {
               floatingActionButton: vehiculoSeleccionado == null
                   ? null
                   : FloatingActionButton.extended(
-                      onPressed: () => _abrirFormulario(
-                        vehiculo: vehiculoSeleccionado!,
-                      ),
+                      onPressed: () =>
+                          _abrirFormulario(vehiculo: vehiculoSeleccionado!),
                       backgroundColor: AppTheme.accentYellow,
                       foregroundColor: AppTheme.accentText,
                       icon: const Icon(Icons.add),
@@ -795,7 +820,8 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                       ),
                     ),
               body: SafeArea(
-                child: rolSnapshot.connectionState == ConnectionState.waiting ||
+                child:
+                    rolSnapshot.connectionState == ConnectionState.waiting ||
                         (vehiculosSnapshot.connectionState ==
                                 ConnectionState.waiting &&
                             !vehiculosSnapshot.hasData)
@@ -805,15 +831,15 @@ class _MantenimientoViewState extends State<MantenimientoView> {
                         ),
                       )
                     : vehiculosSnapshot.hasError
-                        ? _mensaje(
-                            'No se pudieron cargar los vehículos. '
-                            'Revisa tu conexión y los permisos de tu cuenta.',
-                            error: true,
-                          )
-                        : _construirContenido(
-                            esOperador: esOperador,
-                            vehiculos: vehiculos,
-                          ),
+                    ? _mensaje(
+                        'No se pudieron cargar los vehículos. '
+                        'Revisa tu conexión y los permisos de tu cuenta.',
+                        error: true,
+                      )
+                    : _construirContenido(
+                        esOperador: esOperador,
+                        vehiculos: vehiculos,
+                      ),
               ),
             );
           },

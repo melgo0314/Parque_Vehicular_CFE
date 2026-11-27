@@ -1,77 +1,47 @@
 import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../viewmodel/usuarios_viewmodel.dart';
 
 // Formulario para crear o editar un usuario.
 class FormUsuarioView extends StatefulWidget {
-  // Usuario que se editará; es null cuando se registra uno nuevo.
   final UserModel? usuario;
 
-  // Crea el formulario y recibe opcionalmente un usuario existente.
-  // Entradas: key opcional y usuario opcional para el modo de edición.
-  // Salida: una instancia de FormUsuarioView.
-  const FormUsuarioView({
-    super.key,
-    this.usuario,
-  });
+  const FormUsuarioView({super.key, this.usuario});
 
-  // Crea el estado asociado al formulario.
-  // Entrada: ninguna.
-  // Salida: el estado que administra los campos y las operaciones.
   @override
   State<FormUsuarioView> createState() => _FormUsuarioViewState();
 }
 
-// Estado y comportamiento del formulario de usuarios.
 class _FormUsuarioViewState extends State<FormUsuarioView> {
-  // Llave utilizada para validar los campos del formulario.
   final _formKey = GlobalKey<FormState>();
-
-  // ViewModel que registra, actualiza y elimina usuarios.
   final _viewModel = UsuariosViewModel();
 
-  // Controlador para el nombre completo.
   final _nombreController = TextEditingController();
-
-  // Controlador para el correo electrónico.
   final _correoController = TextEditingController();
-
-  // Controlador para la contraseña.
   final _contrasenaController = TextEditingController();
-
-  // Controlador para el RPE.
   final _rpeController = TextEditingController();
-
-  // Controlador para el teléfono.
   final _telefonoController = TextEditingController();
 
-  // Rol seleccionado para el usuario.
   String _rol = 'operador';
 
-  // Archivo de licencia seleccionado.
   PlatformFile? _archivoLicencia;
-
-  // Contenido del archivo de licencia seleccionado.
   Uint8List? _bytesLicencia;
 
-  // Indica si la contraseña se muestra en el campo.
   bool _mostrarContrasena = false;
-
-  // Indica si se están guardando los datos.
   bool _guardando = false;
-
-  // Indica si se está eliminando el usuario.
   bool _eliminando = false;
 
-  // Indica si el formulario está editando un usuario existente.
   bool get _esEdicion => widget.usuario != null;
 
-  // Inicializa el formulario con los datos del usuario existente.
-  // Entrada: ninguna; consulta el usuario recibido por el widget.
-  // Salida: ninguna; llena los campos con sus datos.
+  bool get _tieneLicenciaActual =>
+      widget.usuario?.urlLicencia.trim().isNotEmpty ?? false;
+
   @override
   void initState() {
     super.initState();
@@ -83,13 +53,10 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
       _correoController.text = usuario.correo;
       _rpeController.text = usuario.rpe;
       _telefonoController.text = usuario.telefono;
-      _rol = usuario.rol.toLowerCase();
+      _rol = usuario.rol.trim().toLowerCase();
     }
   }
 
-  // Libera los controladores al cerrar el formulario.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   @override
   void dispose() {
     _nombreController.dispose();
@@ -97,12 +64,10 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     _contrasenaController.dispose();
     _rpeController.dispose();
     _telefonoController.dispose();
+    _viewModel.dispose();
     super.dispose();
   }
 
-  // Separa un nombre completo en nombre y apellidos.
-  // Entrada: nombreCompleto escrito por el usuario.
-  // Salida: lista con nombre, primer apellido y segundo apellido.
   List<String> _separarNombre(String nombreCompleto) {
     final partes = nombreCompleto
         .trim()
@@ -124,9 +89,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return ['', '', ''];
   }
 
-  // Valida que un campo obligatorio tenga contenido.
-  // Entradas: valor del campo y campo, nombre que se incluirá en el mensaje.
-  // Salida: mensaje de error si el campo está vacío; de lo contrario, null.
   String? _validarObligatorio(String? valor, String campo) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe $campo.';
@@ -135,16 +97,13 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return null;
   }
 
-  // Valida que el correo tenga un formato aceptable.
-  // Entrada: valor escrito en el campo de correo.
-  // Salida: mensaje de error si el correo no es válido; de lo contrario, null.
   String? _validarCorreo(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'Escribe el correo electrónico.';
     }
 
-    final correoValido =
-        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(valor.trim());
+    final correoValido = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+        .hasMatch(valor.trim());
 
     if (!correoValido) {
       return 'Escribe un correo válido.';
@@ -153,10 +112,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return null;
   }
 
-  // Valida la contraseña según se registre o edite un usuario.
-  // Entrada: valor escrito en el campo de contraseña.
-  // Salida: mensaje de error si falta o no alcanza la longitud requerida;
-  // devuelve null si es válida o si se dejó vacía durante una edición.
   String? _validarContrasena(String? valor) {
     if (_esEdicion && (valor == null || valor.isEmpty)) {
       return null;
@@ -173,9 +128,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     return null;
   }
 
-  // Abre el selector de archivos y carga una licencia PDF o de imagen.
-  // Entrada: ninguna.
-  // Salida: ninguna; guarda el archivo y sus bytes, o muestra un mensaje de error.
   Future<void> _seleccionarLicencia() async {
     try {
       final archivo = await FilePicker.pickFile(
@@ -188,10 +140,7 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
       final bytes = await archivo.readAsBytes();
 
       if (bytes.isEmpty) {
-        _mostrarMensaje(
-          'El archivo seleccionado está vacío.',
-          error: true,
-        );
+        _mostrarMensaje('El archivo seleccionado está vacío.', error: true);
         return;
       }
 
@@ -210,9 +159,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     }
   }
 
-  // Quita la licencia seleccionada y limpia sus datos de memoria.
-  // Entrada: ninguna.
-  // Salida: ninguna; limpia el archivo y sus bytes seleccionados.
   void _quitarLicencia() {
     setState(() {
       _archivoLicencia = null;
@@ -220,9 +166,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     });
   }
 
-  // Valida y guarda los datos del usuario.
-  // Entrada: ninguna; utiliza los valores de los campos del formulario.
-  // Salida: ninguna; muestra errores o cierra el formulario si se guarda.
   Future<void> _guardar() async {
     FocusScope.of(context).unfocus();
 
@@ -230,9 +173,10 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
       return;
     }
 
-    if (!_esEdicion &&
-        _rol == 'operador' &&
-        (_archivoLicencia == null || _bytesLicencia == null)) {
+    final tieneLicenciaValida =
+        _bytesLicencia != null || (_esEdicion && _tieneLicenciaActual);
+
+    if (_rol == 'operador' && !tieneLicenciaValida) {
       _mostrarMensaje(
         'Selecciona el documento de licencia del operador.',
         error: true,
@@ -263,6 +207,8 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
         nuevaContrasena: _contrasenaController.text.isEmpty
             ? null
             : _contrasenaController.text,
+        archivoLicencia: _bytesLicencia,
+        nombreArchivoLicencia: _archivoLicencia?.name,
       );
     } else {
       guardado = await _viewModel.registrarUsuario(
@@ -303,9 +249,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     Navigator.of(context).pop(true);
   }
 
-  // Solicita confirmación antes de eliminar el usuario actual.
-  // Entrada: ninguna; utiliza el usuario asociado al formulario.
-  // Salida: ninguna; elimina el usuario si se confirma y muestra el resultado.
   Future<void> _confirmarEliminacion() async {
     final usuario = widget.usuario;
 
@@ -367,9 +310,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     Navigator.of(context).pop(true);
   }
 
-  // Muestra un mensaje flotante de éxito o error.
-  // Entradas: mensaje que se mostrará y error para determinar el color.
-  // Salida: ninguna; presenta un SnackBar si la pantalla sigue activa.
   void _mostrarMensaje(String mensaje, {required bool error}) {
     if (!mounted) return;
 
@@ -384,10 +324,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
       );
   }
 
-  // Construye un campo de texto reutilizable para el formulario.
-  // Entradas: controller, etiqueta, icono y opciones para teclado, ayuda,
-  // validación, ocultación de texto y sufijo.
-  // Salida: un TextFormField configurado con los valores recibidos.
   Widget _campo({
     required TextEditingController controller,
     required String etiqueta,
@@ -423,9 +359,6 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     );
   }
 
-  // Construye la vista previa del documento de licencia seleccionado.
-  // Entrada: ninguna; consulta el archivo y sus bytes actuales.
-  // Salida: vista previa PDF, imagen o widget vacío si no hay archivo.
   Widget _vistaDocumentoSeleccionado() {
     final archivo = _archivoLicencia;
     final bytes = _bytesLicencia;
@@ -447,11 +380,7 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.picture_as_pdf,
-              color: Colors.red,
-              size: 32,
-            ),
+            const Icon(Icons.picture_as_pdf, color: Colors.red, size: 32),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -504,14 +433,66 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
     );
   }
 
-  // Construye la interfaz de registro o edición de usuario.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets con los campos y acciones disponibles.
+  Widget _seccionLicencia() {
+    if (_rol != 'operador') {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        const Text(
+          'Documento de la licencia',
+          style: TextStyle(
+            color: AppTheme.primaryText,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Puedes seleccionar un archivo PDF, JPG o PNG.',
+          style: TextStyle(color: AppTheme.secondaryText, fontSize: 13),
+        ),
+        if (_esEdicion && _tieneLicenciaActual && _archivoLicencia == null) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Este usuario ya tiene una licencia. Si seleccionas otra, '
+            'se reemplazará.',
+            style: TextStyle(color: AppTheme.operationalText, fontSize: 13),
+          ),
+        ],
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            foregroundColor: AppTheme.cfeGreen,
+            side: const BorderSide(color: AppTheme.cfeGreen),
+          ),
+          onPressed: _guardando ? null : _seleccionarLicencia,
+          icon: const Icon(Icons.file_upload_outlined),
+          label: Text(
+            _archivoLicencia != null
+                ? 'Cambiar documento'
+                : _tieneLicenciaActual
+                ? 'Reemplazar licencia'
+                : 'Seleccionar documento',
+          ),
+        ),
+        if (_archivoLicencia != null) ...[
+          const SizedBox(height: 12),
+          _vistaDocumentoSeleccionado(),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final titulo = _esEdicion ? 'Editar usuario' : 'Nuevo usuario';
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -659,46 +640,7 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                           validar: (valor) =>
                               _validarObligatorio(valor, 'el teléfono'),
                         ),
-                        if (!_esEdicion && _rol == 'operador') ...[
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Documento de la licencia',
-                            style: TextStyle(
-                              color: AppTheme.primaryText,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Puedes seleccionar un archivo PDF, JPG o PNG.',
-                            style: TextStyle(
-                              color: AppTheme.secondaryText,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(52),
-                              foregroundColor: AppTheme.cfeGreen,
-                              side: const BorderSide(
-                                color: AppTheme.cfeGreen,
-                              ),
-                            ),
-                            onPressed:
-                                _guardando ? null : _seleccionarLicencia,
-                            icon: const Icon(Icons.file_upload_outlined),
-                            label: Text(
-                              _archivoLicencia == null
-                                  ? 'Seleccionar documento'
-                                  : 'Cambiar documento',
-                            ),
-                          ),
-                          if (_archivoLicencia != null) ...[
-                            const SizedBox(height: 12),
-                            _vistaDocumentoSeleccionado(),
-                          ],
-                        ],
+                        _seccionLicencia(),
                         const SizedBox(height: 24),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
@@ -706,8 +648,9 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                             backgroundColor: AppTheme.cfeGreen,
                             foregroundColor: AppTheme.pureWhite,
                           ),
-                          onPressed:
-                              _guardando || _eliminando ? null : _guardar,
+                          onPressed: _guardando || _eliminando
+                              ? null
+                              : _guardar,
                           icon: _guardando
                               ? const SizedBox(
                                   width: 20,
@@ -726,8 +669,8 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                             _guardando
                                 ? 'Guardando…'
                                 : _esEdicion
-                                    ? 'Guardar cambios'
-                                    : 'Registrar usuario',
+                                ? 'Guardar cambios'
+                                : 'Registrar usuario',
                           ),
                         ),
                         if (_esEdicion) ...[
@@ -736,9 +679,7 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(56),
                               foregroundColor: AppTheme.errorRed,
-                              side: const BorderSide(
-                                color: AppTheme.errorRed,
-                              ),
+                              side: const BorderSide(color: AppTheme.errorRed),
                             ),
                             onPressed: _guardando || _eliminando
                                 ? null
@@ -754,9 +695,7 @@ class _FormUsuarioViewState extends State<FormUsuarioView> {
                                   )
                                 : const Icon(Icons.delete_outline),
                             label: Text(
-                              _eliminando
-                                  ? 'Eliminando…'
-                                  : 'Eliminar usuario',
+                              _eliminando ? 'Eliminando…' : 'Eliminar usuario',
                             ),
                           ),
                         ],

@@ -1,108 +1,90 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/combustible_model.dart';
 import '../models/vehiculos_model.dart';
 import '../viewmodel/combustible_viewmodel.dart';
 import 'form_combustible_view.dart';
 
-// Pantalla que muestra las cargas y permite crear, editar o eliminar registros.
 class CombustibleView extends StatefulWidget {
-  // Vehículos que la pantalla puede mostrar en el formulario de carga.
   final List<VehiculoModel> vehiculos;
 
-  // Crea la pantalla y recibe la lista inicial de vehículos.
-  // Entrada: key opcional y vehiculos que se utilizarán en los formularios.
-  // Salida: una instancia de CombustibleView.
-  const CombustibleView({
-    super.key,
-    required this.vehiculos,
-  });
+  const CombustibleView({super.key, required this.vehiculos});
 
-  // Crea el estado asociado a la pantalla.
-  // Entrada: ninguna.
-  // Salida: el estado que administra las cargas y los vehículos.
   @override
   State<CombustibleView> createState() => _CombustibleViewState();
 }
 
-// Estado y comportamiento de la pantalla de combustible.
 class _CombustibleViewState extends State<CombustibleView> {
-  // ViewModel que consulta y administra cargas de combustible.
-  final _viewModel = CombustibleViewModel();
+  final CombustibleViewModel _viewModel = CombustibleViewModel();
+  final TextEditingController _busquedaController = TextEditingController();
 
-  // Controlador del campo de búsqueda.
-  final _busquedaController = TextEditingController();
-
-  // Lista de vehículos disponibles para asociar con las cargas.
-  late List<VehiculoModel> _vehiculos;
-
-  // Suscripción usada para recibir cambios en la lista de vehículos.
-  StreamSubscription<List<VehiculoModel>>? _suscripcionVehiculos;
-
-  // Texto escrito en el campo de búsqueda.
-  String _busqueda = '';
-
-  // Identificador del vehículo seleccionado como filtro.
-  String _vehiculoFiltro = '';
-
-  // Mensaje de error al cargar vehículos, si ocurre.
+  List<VehiculoModel> _vehiculos = [];
+  bool _esAdministrador = false;
+  bool _cargandoVehiculos = true;
+  String? _vehiculoUidOperador;
   String? _errorVehiculos;
 
-  // Indica si la lista de vehículos está cargando.
-  bool _cargandoVehiculos = false;
+  String _vehiculoFiltro = '';
+  String _busqueda = '';
 
-  // Inicializa la pantalla y carga vehículos si no recibió una lista.
-  // Entrada: ninguna.
-  // Salida: ninguna; prepara la lista de vehículos y su suscripción.
+  Stream<List<CombustibleModel>>? _streamCargas;
+
   @override
   void initState() {
     super.initState();
-
-    _vehiculos = widget.vehiculos;
-
-    // Si la pantalla que abre este módulo pasa una lista vacía,
-    // carga los vehículos activos desde el ViewModel.
-    if (_vehiculos.isEmpty) {
-      _cargandoVehiculos = true;
-
-      _suscripcionVehiculos = _viewModel.obtenerVehiculos().listen(
-        (vehiculos) {
-          if (!mounted) return;
-
-          setState(() {
-            _vehiculos = vehiculos;
-            _cargandoVehiculos = false;
-            _errorVehiculos = null;
-          });
-        },
-        onError: (Object error) {
-          if (!mounted) return;
-
-          setState(() {
-            _cargandoVehiculos = false;
-            _errorVehiculos =
-                'No se pudieron cargar los vehículos. Revisa tu conexión.';
-          });
-        },
-      );
-    }
+    _cargarAcceso();
   }
 
-  // Cancela la suscripción y libera los recursos de la pantalla.
-  // Entrada: ninguna.
-  // Salida: ninguna.
   @override
   void dispose() {
-    _suscripcionVehiculos?.cancel();
     _busquedaController.dispose();
     _viewModel.dispose();
     super.dispose();
   }
 
-  // Abre el formulario para crear o editar una carga.
-  // Entrada: carga opcional; si se proporciona, el formulario edita ese registro.
-  // Salida: ninguna; muestra un mensaje si el formulario termina correctamente.
+  Future<void> _cargarAcceso() async {
+    try {
+      final acceso = await _viewModel.obtenerAccesoCombustible(
+        vehiculosIniciales: widget.vehiculos,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _esAdministrador = acceso.esAdministrador;
+        _vehiculos = acceso.vehiculos;
+        _vehiculoUidOperador = acceso.vehiculoUidOperador;
+        _cargandoVehiculos = false;
+
+        _streamCargas = _viewModel.obtenerCargas(
+          vehiculoUid: _esAdministrador ? null : _vehiculoUidOperador,
+        );
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _cargandoVehiculos = false;
+        _errorVehiculos = error is StateError
+            ? error.message.toString()
+            : 'No se pudo determinar el vehículo autorizado.';
+      });
+    }
+  }
+
+  void _cambiarFiltroVehiculo(String? uid) {
+    if (!_esAdministrador) return;
+
+    setState(() {
+      _vehiculoFiltro = uid ?? '';
+      _streamCargas = _viewModel.obtenerCargas(
+        vehiculoUid: _vehiculoFiltro.isEmpty ? null : _vehiculoFiltro,
+      );
+    });
+  }
+
   Future<void> _abrirFormulario({CombustibleModel? carga}) async {
     if (_cargandoVehiculos) {
       _mostrarMensaje('Espera mientras se cargan los vehículos.');
@@ -111,7 +93,9 @@ class _CombustibleViewState extends State<CombustibleView> {
 
     if (_vehiculos.isEmpty) {
       _mostrarMensaje(
-        _errorVehiculos ?? 'No hay vehículos activos para registrar una carga.',
+        _esAdministrador
+            ? 'No hay vehículos activos para registrar una carga.'
+            : 'No tienes un vehículo asignado. Solicita la asignación al administrador.',
         esError: true,
       );
       return;
@@ -119,10 +103,8 @@ class _CombustibleViewState extends State<CombustibleView> {
 
     final resultado = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => FormCombustibleView(
-          vehiculos: _vehiculos,
-          carga: carga,
-        ),
+        builder: (_) =>
+            FormCombustibleView(vehiculos: _vehiculos, carga: carga),
       ),
     );
 
@@ -135,9 +117,6 @@ class _CombustibleViewState extends State<CombustibleView> {
     );
   }
 
-  // Pide confirmación antes de eliminar una carga.
-  // Entrada: carga que se desea eliminar.
-  // Salida: ninguna; elimina el registro si se confirma y muestra el resultado.
   Future<void> _confirmarEliminacion(CombustibleModel carga) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -171,52 +150,79 @@ class _CombustibleViewState extends State<CombustibleView> {
 
     if (!mounted) return;
 
-    if (correcto) {
-      _mostrarMensaje('La carga se eliminó correctamente.');
-    } else {
-      _mostrarMensaje(
-        _viewModel.mensajeError ?? 'No se pudo eliminar la carga.',
-        esError: true,
-      );
-    }
+    _mostrarMensaje(
+      correcto
+          ? (_viewModel.mensajeExito ?? 'La carga se eliminó correctamente.')
+          : (_viewModel.mensajeError ?? 'No se pudo eliminar la carga.'),
+      esError: !correcto,
+    );
   }
 
-  // Muestra un mensaje flotante de éxito o error.
-  // Entradas: texto que se presentará y esError para determinar el color.
-  // Salida: ninguna; muestra un SnackBar en la pantalla.
   void _mostrarMensaje(String texto, {bool esError = false}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(texto),
           backgroundColor: esError ? AppTheme.errorRed : AppTheme.cfeGreen,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
 
-  // Filtra las cargas por vehículo y por los datos que coinciden con la búsqueda.
-  // Entradas: cargas que se van a filtrar y vehículos indexados por identificador.
-  // Salida: lista de cargas que cumplen los criterios actuales.
+  Widget _vehiculoAsignadoOperador() {
+    if (_esAdministrador || _vehiculos.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final vehiculo = _vehiculos.first;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      decoration: BoxDecoration(
+        color: AppTheme.roleSurface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.local_shipping_outlined, color: AppTheme.cfeGreen),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '${vehiculo.numeroEconomico} · '
+              '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.primaryText,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<CombustibleModel> _filtrarCargas(
     List<CombustibleModel> cargas,
     Map<String, VehiculoModel> vehiculosPorId,
   ) {
     final texto = _busqueda.trim().toLowerCase();
 
+    if (texto.isEmpty) return cargas;
+
     return cargas.where((carga) {
-      if (_vehiculoFiltro.isNotEmpty &&
-          carga.vehiculoUid != _vehiculoFiltro) {
-        return false;
-      }
-
-      if (texto.isEmpty) return true;
-
       final vehiculo = vehiculosPorId[carga.vehiculoUid];
       final datosVehiculo = vehiculo == null
           ? ''
           : '${vehiculo.numeroEconomico} ${vehiculo.placas} '
-              '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}';
+                '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}';
 
       final datosCarga = [
         carga.tipoCombustible,
@@ -232,9 +238,6 @@ class _CombustibleViewState extends State<CombustibleView> {
     }).toList();
   }
 
-  // Da formato a una fecha para mostrarla en la lista de cargas.
-  // Entrada: fecha que se desea presentar.
-  // Salida: fecha con el formato día, mes abreviado y año.
   String _fechaFormateada(DateTime fecha) {
     const meses = [
       'ene',
@@ -255,9 +258,255 @@ class _CombustibleViewState extends State<CombustibleView> {
     return '$dia ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
-  // Construye la interfaz de búsqueda, el historial y el botón para registrar.
-  // Entrada: context de la pantalla actual.
-  // Salida: el árbol de widgets de la pantalla de combustible.
+  Widget _selectorVehiculoAdministrador() {
+    if (!_esAdministrador || _vehiculos.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: DropdownButtonFormField<String>(
+        initialValue: _vehiculoFiltro,
+        decoration: const InputDecoration(
+          labelText: 'Filtrar por vehículo',
+          prefixIcon: Icon(Icons.local_shipping_outlined),
+        ),
+        items: [
+          const DropdownMenuItem(value: '', child: Text('Todos los vehículos')),
+          ..._vehiculos.map(
+            (vehiculo) => DropdownMenuItem(
+              value: vehiculo.uid,
+              child: Text(
+                '${vehiculo.numeroEconomico} • ${vehiculo.placas}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+        onChanged: _cambiarFiltroVehiculo,
+      ),
+    );
+  }
+
+  Widget _estadoVacio({required IconData icono, required String mensaje}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icono, size: 48, color: AppTheme.secondaryText),
+            const SizedBox(height: 12),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.secondaryText,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _resumenAdministrador({
+    required int cantidadCargas,
+    required double litros,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$cantidadCargas '
+              '${cantidadCargas == 1 ? 'carga' : 'cargas'}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          Text(
+            '${litros.toStringAsFixed(1)} L',
+            style: const TextStyle(
+              color: AppTheme.secondaryText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resumenOperador({
+    required int cantidadCargas,
+    required double litros,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: SizedBox(
+        width: double.infinity,
+        child: Card(
+          color: AppTheme.pureWhite,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppTheme.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Litros registrados en el historial',
+                  style: TextStyle(
+                    color: AppTheme.secondaryText,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${litros.toStringAsFixed(1)} L',
+                  style: const TextStyle(
+                    color: AppTheme.cfeGreen,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$cantidadCargas '
+                  '${cantidadCargas == 1 ? 'carga registrada' : 'cargas registradas'}',
+                  style: const TextStyle(
+                    color: AppTheme.secondaryText,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _contenido(Map<String, VehiculoModel> vehiculosPorId) {
+    if (_cargandoVehiculos) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.cfeGreen),
+      );
+    }
+
+    if (_errorVehiculos != null) {
+      return _estadoVacio(
+        icono: Icons.cloud_off_outlined,
+        mensaje: _errorVehiculos!,
+      );
+    }
+
+    if (_vehiculos.isEmpty) {
+      return _estadoVacio(
+        icono: Icons.local_shipping_outlined,
+        mensaje: _esAdministrador
+            ? 'No hay vehículos activos registrados.'
+            : 'No tienes un vehículo asignado.',
+      );
+    }
+
+    if (_streamCargas == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.cfeGreen),
+      );
+    }
+
+    return StreamBuilder<List<CombustibleModel>>(
+      stream: _streamCargas,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _estadoVacio(
+            icono: Icons.cloud_off_outlined,
+            mensaje: 'No se pudo cargar el historial. Revisa tu conexión e inténtalo de nuevo.',
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppTheme.cfeGreen),
+          );
+        }
+
+        final todasLasCargas = snapshot.data ?? [];
+
+        if (todasLasCargas.isEmpty) {
+          return _estadoVacio(
+            icono: Icons.local_gas_station_outlined,
+            mensaje: _esAdministrador
+                ? 'Todavía no hay cargas de combustible.'
+                : 'Todavía no hay cargas de combustible para tu vehículo.',
+          );
+        }
+
+        final rendimientoPorId = <String, double?>{};
+
+        for (var i = 0; i < todasLasCargas.length; i++) {
+          rendimientoPorId[todasLasCargas[i].uid] = _viewModel
+              .calcularRendimientoKmL(todasLasCargas, i);
+        }
+
+        final cargasVisibles = _filtrarCargas(todasLasCargas, vehiculosPorId);
+
+        if (cargasVisibles.isEmpty) {
+          return _estadoVacio(
+            icono: Icons.search_off,
+            mensaje: 'No se encontraron cargas con esos criterios.',
+          );
+        }
+
+        final litrosMostrados = cargasVisibles.fold<double>(
+          0,
+          (total, carga) => total + carga.litros,
+        );
+
+        return Column(
+          children: [
+            if (_esAdministrador)
+              _resumenAdministrador(
+                cantidadCargas: cargasVisibles.length,
+                litros: litrosMostrados,
+              )
+            else
+              _resumenOperador(
+                cantidadCargas: cargasVisibles.length,
+                litros: litrosMostrados,
+              ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                itemCount: cargasVisibles.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final carga = cargasVisibles[index];
+
+                  return _TarjetaCarga(
+                    carga: carga,
+                    vehiculo: vehiculosPorId[carga.vehiculoUid],
+                    rendimientoKmL: rendimientoPorId[carga.uid],
+                    fecha: _fechaFormateada(carga.fechaCarga),
+                    onEditar: () => _abrirFormulario(carga: carga),
+                    onEliminar: () => _confirmarEliminacion(carga),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vehiculosPorId = {
@@ -265,6 +514,7 @@ class _CombustibleViewState extends State<CombustibleView> {
     };
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         title: const Text('Combustible'),
@@ -274,155 +524,9 @@ class _CombustibleViewState extends State<CombustibleView> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _busquedaController,
-                onChanged: (valor) => setState(() => _busqueda = valor),
-                decoration: InputDecoration(
-                  hintText: 'Buscar por vehículo, tipo o RPE',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _busqueda.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Limpiar búsqueda',
-                          onPressed: () {
-                            _busquedaController.clear();
-                            setState(() => _busqueda = '');
-                          },
-                          icon: const Icon(Icons.close),
-                        ),
-                ),
-              ),
-            ),
-            if (_cargandoVehiculos)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_errorVehiculos != null)
-              Expanded(
-                child: _estadoVacio(
-                  icono: Icons.cloud_off_outlined,
-                  mensaje: _errorVehiculos!,
-                ),
-              )
-            else if (_vehiculos.isEmpty)
-              Expanded(
-                child: _estadoVacio(
-                  icono: Icons.local_shipping_outlined,
-                  mensaje: 'No hay vehículos activos registrados.',
-                ),
-              )
-            else
-              Expanded(
-                child: StreamBuilder<List<CombustibleModel>>(
-                  stream: _viewModel.obtenerCargas(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return _estadoVacio(
-                        icono: Icons.cloud_off_outlined,
-                        mensaje:
-                            'No se pudo cargar el historial. Revisa tu '
-                            'conexión e inténtalo de nuevo.',
-                      );
-                    }
-
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    }
-
-                    final todasLasCargas = snapshot.data ?? [];
-
-                    if (todasLasCargas.isEmpty) {
-                      return _estadoVacio(
-                        icono: Icons.local_gas_station_outlined,
-                        mensaje: 'Todavía no hay cargas de combustible.',
-                      );
-                    }
-
-                    final rendimientoPorId = <String, double?>{};
-
-                    for (var i = 0; i < todasLasCargas.length; i++) {
-                      rendimientoPorId[todasLasCargas[i].uid] =
-                          _viewModel.calcularRendimientoKmL(
-                        todasLasCargas,
-                        i,
-                      );
-                    }
-
-                    final cargasVisibles = _filtrarCargas(
-                      todasLasCargas,
-                      vehiculosPorId,
-                    );
-
-                    if (cargasVisibles.isEmpty) {
-                      return _estadoVacio(
-                        icono: Icons.search_off,
-                        mensaje:
-                            'No se encontraron cargas con esos criterios.',
-                      );
-                    }
-
-                    final litrosMostrados = cargasVisibles.fold<double>(
-                      0,
-                      (total, carga) => total + carga.litros,
-                    );
-
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${cargasVisibles.length} '
-                                  '${cargasVisibles.length == 1 ? 'carga' : 'cargas'}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${litrosMostrados.toStringAsFixed(1)} L',
-                                style: const TextStyle(
-                                  color: AppTheme.secondaryText,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                            itemCount: cargasVisibles.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              final carga = cargasVisibles[index];
-
-                              return _TarjetaCarga(
-                                carga: carga,
-                                vehiculo: vehiculosPorId[carga.vehiculoUid],
-                                rendimientoKmL: rendimientoPorId[carga.uid],
-                                fecha: _fechaFormateada(carga.fechaCarga),
-                                onEditar: () => _abrirFormulario(carga: carga),
-                                onEliminar: () =>
-                                    _confirmarEliminacion(carga),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
+            _selectorVehiculoAdministrador(),
+            if (!_esAdministrador) _vehiculoAsignadoOperador(),
+            Expanded(child: _contenido(vehiculosPorId)),
           ],
         ),
       ),
@@ -440,65 +544,16 @@ class _CombustibleViewState extends State<CombustibleView> {
       ),
     );
   }
-
-  // Construye el estado vacío, de carga o de error de una sección.
-  // Entradas: icono que se mostrará y mensaje que se presentará.
-  // Salida: un widget centrado con el icono y el mensaje.
-  Widget _estadoVacio({
-    required IconData icono,
-    required String mensaje,
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icono,
-              size: 48,
-              color: AppTheme.secondaryText,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              mensaje,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// Tarjeta que presenta los datos principales de una carga de combustible.
 class _TarjetaCarga extends StatelessWidget {
-  // Registro de combustible que se mostrará.
   final CombustibleModel carga;
-
-  // Vehículo asociado a la carga, si está disponible.
   final VehiculoModel? vehiculo;
-
-  // Rendimiento calculado para la carga, si está disponible.
   final double? rendimientoKmL;
-
-  // Fecha formateada para presentarla en la tarjeta.
   final String fecha;
-
-  // Acción que abre el formulario de edición.
   final VoidCallback onEditar;
-
-  // Acción que inicia la eliminación de la carga.
   final VoidCallback onEliminar;
 
-  // Crea una tarjeta con los datos y acciones de una carga.
-  // Entradas: carga, vehículo opcional, rendimiento, fecha y funciones de edición
-  // y eliminación.
-  // Salida: una instancia de _TarjetaCarga.
   const _TarjetaCarga({
     required this.carga,
     required this.vehiculo,
@@ -508,9 +563,6 @@ class _TarjetaCarga extends StatelessWidget {
     required this.onEliminar,
   });
 
-  // Construye la tarjeta con información y acciones de la carga.
-  // Entrada: context de la tarjeta actual.
-  // Salida: un widget con los datos del vehículo y del combustible.
   @override
   Widget build(BuildContext context) {
     final identificadorVehiculo = vehiculo == null
@@ -636,35 +688,18 @@ class _TarjetaCarga extends StatelessWidget {
   }
 }
 
-// Widget que presenta un dato de la carga junto con su icono.
 class _DatoCarga extends StatelessWidget {
-  // Icono que identifica el dato.
   final IconData icono;
-
-  // Texto del dato que se mostrará.
   final String texto;
 
-  // Crea un indicador para un dato de combustible.
-  // Entradas: icono y texto que se presentarán.
-  // Salida: una instancia de _DatoCarga.
-  const _DatoCarga({
-    required this.icono,
-    required this.texto,
-  });
+  const _DatoCarga({required this.icono, required this.texto});
 
-  // Construye el icono y el texto del dato.
-  // Entrada: context del widget actual.
-  // Salida: un widget en fila con el icono y el texto.
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icono,
-          size: 15,
-          color: AppTheme.secondaryText,
-        ),
+        Icon(icono, size: 15, color: AppTheme.secondaryText),
         const SizedBox(width: 4),
         Text(
           texto,

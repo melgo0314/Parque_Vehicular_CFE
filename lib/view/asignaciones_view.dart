@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/asignacion_model.dart';
 import '../viewmodel/asignacion_viewmodel.dart';
@@ -133,7 +135,8 @@ class _AsignacionesViewState extends State<AsignacionesView> {
             '${fechaFin.day.toString().padLeft(2, '0')} '
             '${_mesAbreviado(fechaFin.month)} ${fechaFin.year}';
       } else {
-        intervalo = '${_fechaCompleta(asignacion.fechaInicio)} – '
+        intervalo =
+            '${_fechaCompleta(asignacion.fechaInicio)} – '
             '${_fechaCompleta(fechaFin)}';
       }
 
@@ -232,9 +235,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
           ),
           actions: [
             TextButton(
-              style: TextButton.styleFrom(
-                minimumSize: const Size(88, 48),
-              ),
+              style: TextButton.styleFrom(minimumSize: const Size(88, 48)),
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancelar'),
             ),
@@ -256,8 +257,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
 
     setState(() => _uidFinalizando = asignacion.uid);
 
-    final finalizada =
-        await _viewModel.finalizarAsignacion(asignacion.uid);
+    final finalizada = await _viewModel.finalizarAsignacion(asignacion.uid);
 
     if (!mounted) return;
     setState(() => _uidFinalizando = null);
@@ -265,9 +265,8 @@ class _AsignacionesViewState extends State<AsignacionesView> {
     _mostrarMensaje(
       finalizada
           ? (_viewModel.mensajeExito ??
-              'La asignación se finalizó correctamente.')
-          : (_viewModel.mensajeError ??
-              'No se pudo finalizar la asignación.'),
+                'La asignación se finalizó correctamente.')
+          : (_viewModel.mensajeError ?? 'No se pudo finalizar la asignación.'),
       error: !finalizada,
     );
   }
@@ -487,10 +486,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
             const Text(
               'Usa “Nueva asignación” para asignar un vehículo a un operador.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: AppTheme.secondaryText, fontSize: 13),
             ),
           ],
         ),
@@ -504,6 +500,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -568,9 +565,7 @@ class _AsignacionesViewState extends State<AsignacionesView> {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
                   return const Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.cfeGreen,
-                    ),
+                    child: CircularProgressIndicator(color: AppTheme.cfeGreen),
                   );
                 }
 

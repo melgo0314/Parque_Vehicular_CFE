@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -153,10 +154,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
       final bytes = await archivo.readAsBytes();
 
       if (bytes.isEmpty) {
-        _mostrarMensaje(
-          'No fue posible leer el archivo seleccionado.',
-          false,
-        );
+        _mostrarMensaje('No fue posible leer el archivo seleccionado.', false);
         return;
       }
 
@@ -171,10 +169,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
       } else if (extension == 'png') {
         tipoMime = 'image/png';
       } else {
-        _mostrarMensaje(
-          'El formato del archivo no es válido.',
-          false,
-        );
+        _mostrarMensaje('El formato del archivo no es válido.', false);
         return;
       }
 
@@ -184,10 +179,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
         _tipoMime = tipoMime;
       });
     } catch (error) {
-      _mostrarMensaje(
-        'Ocurrió un error al seleccionar el archivo.',
-        false,
-      );
+      _mostrarMensaje('Ocurrió un error al seleccionar el archivo.', false);
     }
   }
 
@@ -207,10 +199,10 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: AppTheme.cfeGreen,
-                  onPrimary: AppTheme.pureWhite,
-                  surface: AppTheme.pureWhite,
-                ),
+              primary: AppTheme.cfeGreen,
+              onPrimary: AppTheme.pureWhite,
+              surface: AppTheme.pureWhite,
+            ),
           ),
           child: child!,
         );
@@ -267,28 +259,19 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
 
     // Al registrar es obligatorio seleccionar un archivo.
     if (!_esEdicion && _archivoBytes == null) {
-      _mostrarMensaje(
-        'Selecciona el archivo del documento.',
-        false,
-      );
+      _mostrarMensaje('Selecciona el archivo del documento.', false);
       return;
     }
 
     if (_documentoUid == null || _documentoUid!.isEmpty) {
-      _mostrarMensaje(
-        'Selecciona el tipo de documento.',
-        false,
-      );
+      _mostrarMensaje('Selecciona el tipo de documento.', false);
       return;
     }
 
     final usuario = FirebaseAuth.instance.currentUser;
 
     if (usuario == null) {
-      _mostrarMensaje(
-        'No se encontró una sesión de usuario activa.',
-        false,
-      );
+      _mostrarMensaje('No se encontró una sesión de usuario activa.', false);
       return;
     }
 
@@ -304,16 +287,12 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
       uid: expedienteAnterior?.uid ?? '',
       vehiculoUid: widget.vehiculo.uid,
       documentoUid: _documentoUid!,
-      nombreArchivo: _archivoSeleccionado?.name ??
-          expedienteAnterior?.nombreArchivo ??
-          '',
+      nombreArchivo:
+          _archivoSeleccionado?.name ?? expedienteAnterior?.nombreArchivo ?? '',
       archivoUrl: expedienteAnterior?.archivoUrl ?? '',
       rutaStorage: expedienteAnterior?.rutaStorage ?? '',
-      tipoMime: _tipoMime ??
-          expedienteAnterior?.tipoMime ??
-          '',
-      fechaCarga:
-          expedienteAnterior?.fechaCarga ?? DateTime.now(),
+      tipoMime: _tipoMime ?? expedienteAnterior?.tipoMime ?? '',
+      fechaCarga: expedienteAnterior?.fechaCarga ?? DateTime.now(),
       fechaVencimiento: _fechaVencimiento,
       observaciones: _observacionesController.text.trim(),
       usuarioUid: expedienteAnterior?.usuarioUid ?? usuario.uid,
@@ -344,18 +323,12 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
     });
 
     if (resultado) {
-      _mostrarMensaje(
-        _viewModel.mensajeExito,
-        true,
-      );
+      _mostrarMensaje(_viewModel.mensajeExito, true);
 
       // Regresa a la vista anterior e indica que hubo cambios.
       Navigator.pop(context, true);
     } else {
-      _mostrarMensaje(
-        _viewModel.mensajeError,
-        false,
-      );
+      _mostrarMensaje(_viewModel.mensajeError, false);
     }
   }
 
@@ -382,10 +355,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
           items: widget.documentos.map((documento) {
             return DropdownMenuItem<String>(
               value: documento.uid,
-              child: Text(
-                documento.nombre,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(documento.nombre, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: _esEdicion
@@ -408,10 +378,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
             padding: EdgeInsets.only(top: 5, left: 4),
             child: Text(
               'El tipo de documento no se puede modificar durante la edición.',
-              style: TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: AppTheme.secondaryText, fontSize: 12),
             ),
           ),
       ],
@@ -420,7 +387,8 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
 
   // Campo para seleccionar y mostrar el archivo.
   Widget _campoArchivo() {
-    final nombreArchivo = _archivoSeleccionado?.name ??
+    final nombreArchivo =
+        _archivoSeleccionado?.name ??
         (_esEdicion ? widget.expediente!.nombreArchivo : null);
 
     return Column(
@@ -443,9 +411,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
             decoration: BoxDecoration(
               color: AppTheme.pureWhite,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.border,
-              ),
+              border: Border.all(color: AppTheme.border),
             ),
             child: Column(
               children: [
@@ -471,10 +437,7 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
                 const Text(
                   'Formatos permitidos: PDF, JPG, JPEG y PNG',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppTheme.secondaryText,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.secondaryText, fontSize: 12),
                 ),
                 if (_esEdicion && _archivoSeleccionado == null)
                   const Padding(
@@ -497,15 +460,10 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: _guardando ? null : _quitarArchivo,
-              icon: const Icon(
-                Icons.delete_outline,
-                color: AppTheme.errorRed,
-              ),
+              icon: const Icon(Icons.delete_outline, color: AppTheme.errorRed),
               label: const Text(
                 'Quitar archivo',
-                style: TextStyle(
-                  color: AppTheme.errorRed,
-                ),
+                style: TextStyle(color: AppTheme.errorRed),
               ),
             ),
           ),
@@ -531,16 +489,11 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 16,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
               color: AppTheme.pureWhite,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.border,
-              ),
+              border: Border.all(color: AppTheme.border),
             ),
             child: Row(
               children: [
@@ -669,11 +622,10 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
-        title: Text(
-          _esEdicion ? 'Editar documento' : 'Agregar documento',
-        ),
+        title: Text(_esEdicion ? 'Editar documento' : 'Agregar documento'),
       ),
       body: SafeArea(
         child: Form(
@@ -682,18 +634,14 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
             padding: const EdgeInsets.all(16),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 650,
-                ),
+                constraints: const BoxConstraints(maxWidth: 650),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: AppTheme.pureWhite,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.border,
-                    ),
+                    border: Border.all(color: AppTheme.border),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -716,17 +664,6 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
                         ),
                       ),
                       const SizedBox(height: 5),
-                      Text(
-                        _esEdicion
-                            ? 'Modifica la información del documento seleccionado.'
-                            : 'Completa la información y adjunta el archivo correspondiente al vehículo.',
-                        style: const TextStyle(
-                          color: AppTheme.secondaryText,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
                       // Información del vehículo.
                       _informacionVehiculo(),
 
@@ -773,8 +710,8 @@ class _FormExpedienteViewState extends State<FormExpedienteView> {
                             _guardando
                                 ? 'Guardando...'
                                 : _esEdicion
-                                    ? 'Guardar cambios'
-                                    : 'Registrar documento',
+                                ? 'Guardar cambios'
+                                : 'Registrar documento',
                           ),
                         ),
                       ),

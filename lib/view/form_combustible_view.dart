@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 import 'package:flutter/services.dart';
 
 import '../core/theme/app_theme.dart';
@@ -24,11 +25,7 @@ class FormCombustibleView extends StatefulWidget {
   // Crea el formulario con los vehículos y la carga opcional.
   // Entradas: key opcional, vehiculos requeridos y carga opcional para editar.
   // Salida: una instancia de FormCombustibleView.
-  const FormCombustibleView({
-    super.key,
-    required this.vehiculos,
-    this.carga,
-  });
+  const FormCombustibleView({super.key, required this.vehiculos, this.carga});
 
   // Crea el estado asociado a este formulario.
   // Entrada: ninguna.
@@ -77,11 +74,7 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
   bool get _esEdicion => widget.carga != null;
 
   // Tipos de combustible disponibles en el selector.
-  static const List<String> _tiposCombustible = [
-    'Magna',
-    'Premium',
-    'Diésel',
-  ];
+  static const List<String> _tiposCombustible = ['Magna', 'Premium', 'Diésel'];
 
   // Inicializa el formulario con los datos existentes o el vehículo único.
   // Entrada: ninguna.
@@ -136,25 +129,24 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
     _suscripcionCargas = _viewModel
         .obtenerCargas(vehiculoUid: vehiculoUid)
         .listen(
-      (cargas) {
-        final cargasAnteriores = cargas
-            .where((carga) => carga.uid != widget.carga?.uid)
-            .toList()
-          ..sort((a, b) => b.fechaCarga.compareTo(a.fechaCarga));
+          (cargas) {
+            final cargasAnteriores =
+                cargas.where((carga) => carga.uid != widget.carga?.uid).toList()
+                  ..sort((a, b) => b.fechaCarga.compareTo(a.fechaCarga));
 
-        if (!mounted) return;
+            if (!mounted) return;
 
-        setState(() {
-          _ultimoKilometraje = cargasAnteriores.isEmpty
-              ? null
-              : cargasAnteriores.first.kilometraje;
-        });
-      },
-      onError: (_) {
-        if (!mounted) return;
-        setState(() => _ultimoKilometraje = null);
-      },
-    );
+            setState(() {
+              _ultimoKilometraje = cargasAnteriores.isEmpty
+                  ? null
+                  : cargasAnteriores.first.kilometraje;
+            });
+          },
+          onError: (_) {
+            if (!mounted) return;
+            setState(() => _ultimoKilometraje = null);
+          },
+        );
   }
 
   // Abre el selector para elegir la fecha de la carga.
@@ -428,8 +420,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
                     TextFormField(
                       controller: _litrosController,
                       enabled: !_guardando,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
                           RegExp(r'^\d*([.,]\d{0,2})?$'),
@@ -455,8 +448,9 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
                     TextFormField(
                       controller: _importeController,
                       enabled: !_guardando,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
                           RegExp(r'^\d*([.,]\d{0,2})?$'),
@@ -484,17 +478,13 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
             decoration: const InputDecoration(),
             hint: const Text('Selecciona el tipo'),
             items: _tiposCombustible.map((tipo) {
-              return DropdownMenuItem<String>(
-                value: tipo,
-                child: Text(tipo),
-              );
+              return DropdownMenuItem<String>(value: tipo, child: Text(tipo));
             }).toList(),
             onChanged: _guardando
                 ? null
                 : (valor) => setState(() => _tipoCombustible = valor),
-            validator: (valor) => valor == null
-                ? 'Selecciona el tipo de combustible.'
-                : null,
+            validator: (valor) =>
+                valor == null ? 'Selecciona el tipo de combustible.' : null,
           ),
 
           const SizedBox(height: 16),
@@ -505,10 +495,7 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
             enabled: !_guardando,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              hintText: '0',
-              suffixText: 'km',
-            ),
+            decoration: const InputDecoration(hintText: '0', suffixText: 'km'),
             validator: (valor) {
               if (valor == null || valor.trim().isEmpty) {
                 return 'Ingresa el kilometraje.';
@@ -527,10 +514,7 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
             _ultimoKilometraje == null
                 ? 'Aún no hay cargas anteriores para este vehículo.'
                 : 'Último registro: $_ultimoKilometraje km',
-            style: const TextStyle(
-              color: AppTheme.secondaryText,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13),
           ),
 
           const SizedBox(height: 16),
@@ -568,8 +552,8 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
                 _guardando
                     ? 'Guardando...'
                     : _esEdicion
-                        ? 'Guardar cambios'
-                        : 'Guardar carga',
+                    ? 'Guardar cambios'
+                    : 'Guardar carga',
               ),
             ),
           ),
@@ -596,6 +580,7 @@ class _FormCombustibleViewState extends State<FormCombustibleView> {
         .toList();
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         title: Text(_esEdicion ? 'Editar carga' : 'Registrar carga'),

@@ -123,6 +123,51 @@ class ExpedienteRepositorie {
     });
   }
 
+  // Descarga un archivo guardado para mostrarlo dentro de la aplicación.
+  // Se usa la ruta de Storage para evitar depender de abrir una URL externa.
+  Future<Uint8List> descargarArchivo(ExpedienteModel expediente) async {
+    final ruta = expediente.rutaStorage.trim();
+    final url = expediente.archivoUrl.trim();
+
+    final referencia = ruta.isNotEmpty
+        ? _storage.ref().child(ruta)
+        : url.isNotEmpty
+            ? _storage.refFromURL(url)
+            : null;
+
+    if (referencia == null) {
+      throw StateError(
+        'Este documento no tiene una ubicación de archivo válida.',
+      );
+    }
+
+    final bytes = await referencia.getData(30 * 1024 * 1024);
+    if (bytes == null || bytes.isEmpty) {
+      throw StateError('El archivo está vacío o ya no existe en Storage.');
+    }
+
+    return bytes;
+  }
+
+  // Obtiene una URL vigente desde Firebase Storage. Esto permite sustituir
+  // enlaces de descarga antiguos guardados en Firestore.
+  Future<String> obtenerUrlArchivo(ExpedienteModel expediente) async {
+    final ruta = expediente.rutaStorage.trim();
+    final url = expediente.archivoUrl.trim();
+
+    final referencia = ruta.isNotEmpty
+        ? _storage.ref().child(ruta)
+        : url.isNotEmpty
+            ? _storage.refFromURL(url)
+            : null;
+
+    if (referencia == null) {
+      throw StateError('Este documento no tiene una ruta válida en Storage.');
+    }
+
+    return referencia.getDownloadURL();
+  }
+
   // Registra un expediente y almacena su archivo en Firebase Storage.
   Future<void> registrarExpediente({
     required ExpedienteModel expediente,

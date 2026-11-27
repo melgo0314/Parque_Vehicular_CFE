@@ -1,6 +1,7 @@
-
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 import 'package:provider/provider.dart';
+
 import '../models/notificacion_model.dart';
 import '../viewmodel/notificacion_viewmodel.dart';
 
@@ -11,8 +12,7 @@ class NotificacionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => NotificacionViewmodel()
-        ..obtenerNotificaciones(),
+      create: (_) => NotificacionViewmodel()..obtenerNotificaciones(),
       child: const _NotificacionContenido(),
     );
   }
@@ -24,6 +24,7 @@ class _NotificacionContenido extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: const Color(0xFFF4F6F4),
       appBar: AppBar(
         title: const Text('Notificaciones'),
@@ -41,10 +42,7 @@ class _NotificacionContenido extends StatelessWidget {
                       },
                 child: const Text(
                   'Marcar todas',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
               );
             },
@@ -55,9 +53,7 @@ class _NotificacionContenido extends StatelessWidget {
         builder: (context, viewmodel, _) {
           if (viewmodel.cargando) {
             return const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF008A45),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFF008A45)),
             );
           }
 
@@ -80,19 +76,13 @@ class _NotificacionContenido extends StatelessWidget {
 
                 const Text(
                   'Alertas registradas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
 
                 const SizedBox(height: 12),
 
                 ...viewmodel.notificaciones.map((notificacion) {
-                  return _construirTarjeta(
-                    notificacion,
-                    viewmodel,
-                  );
+                  return _construirTarjeta(notificacion, viewmodel);
                 }),
               ],
             ),
@@ -107,9 +97,7 @@ class _NotificacionContenido extends StatelessWidget {
     return Card(
       color: Colors.white,
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -117,10 +105,7 @@ class _NotificacionContenido extends StatelessWidget {
           children: [
             const Text(
               'Resumen de alertas',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -150,11 +135,7 @@ class _NotificacionContenido extends StatelessWidget {
   }
 
   // Construye cada indicador del resumen.
-  Widget _construirIndicador(
-    String titulo,
-    int cantidad,
-    Color color,
-  ) {
+  Widget _construirIndicador(String titulo, int cantidad, Color color) {
     return Expanded(
       child: Column(
         children: [
@@ -195,9 +176,7 @@ class _NotificacionContenido extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: color.withValues(alpha: 0.35),
-        ),
+        side: BorderSide(color: color.withValues(alpha: 0.35)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -249,9 +228,7 @@ class _NotificacionContenido extends StatelessWidget {
 
               Text(
                 'Vehículo: ${notificacion.placas}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
 
               const SizedBox(height: 5),
@@ -329,19 +306,12 @@ class _NotificacionContenido extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         children: const [
           SizedBox(height: 150),
-          Icon(
-            Icons.notifications_none,
-            size: 75,
-            color: Colors.grey,
-          ),
+          Icon(Icons.notifications_none, size: 75, color: Colors.grey),
           SizedBox(height: 16),
           Center(
             child: Text(
               'No hay notificaciones pendientes.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ),
         ],
@@ -360,16 +330,9 @@ class _NotificacionContenido extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 55,
-            ),
+            const Icon(Icons.error_outline, color: Colors.red, size: 55),
             const SizedBox(height: 12),
-            Text(
-              viewmodel.error!,
-              textAlign: TextAlign.center,
-            ),
+            Text(viewmodel.error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: viewmodel.obtenerNotificaciones,

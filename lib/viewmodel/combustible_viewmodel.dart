@@ -1,66 +1,140 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import '../models/combustible_model.dart';
 import '../models/vehiculos_model.dart';
 import '../repositories/combustible_repositorie.dart';
 import '../repositories/vehiculo_repositorie.dart';
 
-// Coordina las operaciones de combustible entre la interfaz y los repositorios.
+class AccesoCombustible {
+  final bool esAdministrador;
+  final List<VehiculoModel> vehiculos;
+  final String? vehiculoUidOperador;
+
+  const AccesoCombustible({
+    required this.esAdministrador,
+    required this.vehiculos,
+    this.vehiculoUidOperador,
+  });
+}
+
 class CombustibleViewModel extends ChangeNotifier {
-  // Repositorio que consulta y administra cargas de combustible.
   final CombustibleRepositorie _repositorio;
-
-  // Repositorio que consulta vehículos.
   final VehiculoRepositorie _vehiculoRepositorio;
+  final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
 
-  // Crea el ViewModel con los repositorios proporcionados o los predeterminados.
-  // Entradas: repositorio y vehiculoRepositorio son dependencias opcionales.
-  // Salida: una instancia de CombustibleViewModel configurada.
+  bool _cargando = false;
+  String? _mensajeError;
+  String? _mensajeExito;
+
+  bool get cargando => _cargando;
+  String? get mensajeError => _mensajeError;
+  String? get mensajeExito => _mensajeExito;
+
   CombustibleViewModel({
     CombustibleRepositorie? repositorio,
     VehiculoRepositorie? vehiculoRepositorio,
+    FirebaseFirestore? db,
+    FirebaseAuth? auth,
   })  : _repositorio = repositorio ?? CombustibleRepositorie(),
-        _vehiculoRepositorio =
-            vehiculoRepositorio ?? VehiculoRepositorie();
+        _vehiculoRepositorio = vehiculoRepositorio ?? VehiculoRepositorie(),
+        _db = db ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  // Indica si hay una operación en curso.
-  bool _cargando = false;
+  /// Determina qué vehículos puede consultar la cuenta actual.
+  ///
+  /// Administrador/superusuario: obtiene todos los vehículos.
+  /// Operador: busca únicamente el vehículo cuyo operadorUidActual coincide
+  /// con el UID autenticado.
+  Future<AccesoCombustible> obtenerAccesoCombustible({
+    List<VehiculoModel> vehiculosIniciales = const [],
+  }) async {
+    final usuario = _auth.currentUser;
 
-  // Contiene el mensaje de error actual, si existe.
-  String? _mensajeError;
+    if (usuario == null) {
+      throw StateError('Debes iniciar sesión para consultar combustible.');
+    }
 
-  // Contiene el mensaje de éxito actual, si existe.
-  String? _mensajeExito;
+    final documentoUsuario =
+        await _db.collection('usuario').doc(usuario.uid).get();
 
-  // Devuelve el estado actual de carga.
-  bool get cargando => _cargando;
+    if (!documentoUsuario.exists) {
+      throw StateError('No se encontró el perfil del usuario.');
+    }
 
-  // Devuelve el mensaje de error actual.
-  String? get mensajeError => _mensajeError;
+    final rol = documentoUsuario.data()?['rol']
+            ?.toString()
+            .trim()
+            .toLowerCase() ??
+        '';
 
-  // Devuelve el mensaje de éxito actual.
-  String? get mensajeExito => _mensajeExito;
+    final esAdministrador =
+        rol == 'administrador' || rol == 'superusuario';
 
-  // Obtiene los vehículos disponibles.
-  // Entrada: ninguna.
-  // Salida: un flujo con la lista de vehículos.
+    if (esAdministrador) {
+      final vehiculos = vehiculosIniciales.isNotEmpty
+          ? vehiculosIniciales
+          : await _vehiculoRepositorio.obtenerVehiculos().first;
+
+      return AccesoCombustible(
+        esAdministrador: true,
+        vehiculos: vehiculos,
+      );
+    }
+
+    if (rol != 'operador') {
+      throw StateError('Tu cuenta no tiene acceso al módulo de combustible.');
+    }
+
+    final resultado = await _db
+        .collection('vehiculo')
+        .where('operadorUidActual', isEqualTo: usuario.uid)
+        .limit(5)
+        .get();
+
+    final asignados = resultado.docs
+        .map((documento) => VehiculoModel.fromMap(
+              documento.data(),
+              documento.id,
+            ))
+        .where((vehiculo) => vehiculo.estaActivo)
+        .toList();
+
+    if (asignados.length > 1) {
+      throw StateError(
+        'Tu cuenta tiene más de un vehículo asignado. '
+        'Solicita al administrador que revise las asignaciones.',
+      );
+    }
+
+    if (asignados.isEmpty) {
+      return const AccesoCombustible(
+        esAdministrador: false,
+        vehiculos: [],
+      );
+    }
+
+    final vehiculoAsignado = asignados.single;
+
+    return AccesoCombustible(
+      esAdministrador: false,
+      vehiculos: [vehiculoAsignado],
+      vehiculoUidOperador: vehiculoAsignado.uid,
+    );
+  }
+
   Stream<List<VehiculoModel>> obtenerVehiculos() {
     return _vehiculoRepositorio.obtenerVehiculos();
   }
 
-  // Obtiene las cargas, opcionalmente filtradas por vehículo.
-  // Entrada: vehiculoUid opcional para limitar los resultados.
-  // Salida: un flujo con la lista de cargas.
   Stream<List<CombustibleModel>> obtenerCargas({
     String? vehiculoUid,
   }) {
     return _repositorio.obtenerCargas(vehiculoUid: vehiculoUid);
   }
 
-  // Valida y registra una carga de combustible.
-  // Entrada: carga con los datos que se desean guardar.
-  // Salida: true si se registra correctamente; false si la validación falla
-  // o si ocurre un error.
   Future<bool> registrarCarga(CombustibleModel carga) async {
     final errorValidacion = _validar(carga);
 
@@ -85,10 +159,6 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
-  // Valida y actualiza una carga de combustible existente.
-  // Entrada: carga con el identificador y los datos actualizados.
-  // Salida: true si se actualiza correctamente; false si los datos no son
-  // válidos o si ocurre un error.
   Future<bool> actualizarCarga(CombustibleModel carga) async {
     final errorValidacion = _validar(carga);
 
@@ -120,10 +190,6 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
-  // Elimina una carga de combustible.
-  // Entrada: uid, identificador de la carga que se eliminará.
-  // Salida: true si se elimina correctamente; false si el identificador no es
-  // válido o si ocurre un error.
   Future<bool> eliminarCarga(String uid) async {
     if (uid.trim().isEmpty) {
       _mensajeError = 'No se encontró el identificador de la carga.';
@@ -146,9 +212,6 @@ class CombustibleViewModel extends ChangeNotifier {
     }
   }
 
-  // Calcula el rendimiento en kilómetros por litro de una carga.
-  // Entradas: cargas ordenadas por fecha y indiceActual de la carga evaluada.
-  // Salida: rendimiento en km/L o null si no se puede calcular.
   double? calcularRendimientoKmL(
     List<CombustibleModel> cargas,
     int indiceActual,
@@ -177,9 +240,6 @@ class CombustibleViewModel extends ChangeNotifier {
     return kilometrosRecorridos / cargaActual.litros;
   }
 
-  // Valida los datos de una carga de combustible.
-  // Entrada: carga cuyos campos se van a revisar.
-  // Salida: mensaje de error si hay datos inválidos; de lo contrario, null.
   String? _validar(CombustibleModel carga) {
     if (carga.vehiculoUid.trim().isEmpty) {
       return 'Selecciona un vehículo.';
@@ -204,9 +264,6 @@ class CombustibleViewModel extends ChangeNotifier {
     return null;
   }
 
-  // Convierte una excepción en un mensaje comprensible para el usuario.
-  // Entrada: error recibido durante una operación.
-  // Salida: texto descriptivo del problema.
   String _mensajeAmigable(Object error) {
     if (error is StateError) {
       return error.message.toString();
@@ -216,7 +273,7 @@ class CombustibleViewModel extends ChangeNotifier {
       switch (error.code) {
         case 'permission-denied':
         case 'unauthenticated':
-          return 'Tu sesión venció. Inicia sesión nuevamente.';
+          return 'Tu sesión no tiene permiso para realizar esta acción.';
         case 'unavailable':
           return 'No hay conexión con el servicio. Inténtalo de nuevo.';
       }
@@ -225,18 +282,12 @@ class CombustibleViewModel extends ChangeNotifier {
     return 'Ocurrió un error. Verifica tu conexión e inténtalo nuevamente.';
   }
 
-  // Limpia los mensajes actuales y notifica a la interfaz.
-  // Entrada: ninguna.
-  // Salida: ninguna; deja los mensajes en null.
   void limpiarMensajes() {
     _mensajeError = null;
     _mensajeExito = null;
     notifyListeners();
   }
 
-  // Activa el estado de carga, limpia los mensajes anteriores y notifica.
-  // Entrada: ninguna.
-  // Salida: ninguna; establece cargando en true.
   void _iniciarOperacion() {
     _cargando = true;
     _mensajeError = null;
@@ -244,9 +295,6 @@ class CombustibleViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Desactiva el estado de carga y notifica a la interfaz.
-  // Entrada: ninguna.
-  // Salida: ninguna; establece cargando en false.
   void _terminarOperacion() {
     _cargando = false;
     notifyListeners();

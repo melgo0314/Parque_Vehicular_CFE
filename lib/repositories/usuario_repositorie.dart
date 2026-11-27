@@ -4,6 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 import 'package:p_vehicular/models/user_model.dart';
 
 // Se comunica con Firebase para administrar usuarios y sus documentos.
@@ -265,19 +266,69 @@ class UsuariosRepositorie {
   // Entradas: [usuario] con los datos del perfil y [nuevaContrasena] opcional.
   // Salida: un [Future] que termina cuando la función procesa la actualización.
   Future<void> actualizarUsuarioCompleto({
-    required UserModel usuario,
-    String? nuevaContrasena,
-  }) async {
-    final callable = _functions.httpsCallable('actualizarUsuario');
+  required UserModel usuario,
+  String? nuevaContrasena,
+  Uint8List? archivoLicencia,
+  String? nombreArchivoLicencia,
+}) async {
+  var usuarioActualizado = usuario;
+  String? urlLicenciaNueva;
 
-    await callable.call<void>({
-      'uid': usuario.uid,
-      'perfil': usuario.toMap(),
-      'nuevaContrasena': nuevaContrasena?.trim().isEmpty == true
-          ? null
-          : nuevaContrasena?.trim(),
-    });
+  if (usuario.rol.trim().toLowerCase() == 'operador' &&
+      archivoLicencia != null) {
+    final extension = _obtenerExtension(nombreArchivoLicencia ?? '');
+    final tipoContenido = _obtenerTipoContenido(extension);
+    final nombreUnico = DateTime.now().microsecondsSinceEpoch;
+
+    final referencia = _storage
+        .ref()
+        .child('licencias/${usuario.uid}/${nombreUnico}.$extension');
+
+    await referencia
+        .putData(
+          archivoLicencia,
+          SettableMetadata(contentType: tipoContenido),
+        )
+        .timeout(const Duration(seconds: 45));
+
+    urlLicenciaNueva = await referencia.getDownloadURL();
+
+    usuarioActualizado = usuario.copyWith(
+      urlLicencia: urlLicenciaNueva,
+    );
   }
+
+  if (usuarioActualizado.rol.trim().toLowerCase() == 'operador' &&
+      usuarioActualizado.urlLicencia.trim().isEmpty) {
+    throw ArgumentError(
+      'Un operador debe tener un documento de licencia.',
+    );
+  }
+
+  final callable = _functions.httpsCallable('actualizarUsuario');
+
+  await callable.call<void>({
+    'uid': usuarioActualizado.uid,
+    'perfil': usuarioActualizado.toMap(),
+    'nuevaContrasena': nuevaContrasena?.trim().isEmpty == true
+        ? null
+        : nuevaContrasena?.trim(),
+  });
+
+  final urlAnterior = usuario.urlLicencia.trim();
+
+  if (urlLicenciaNueva != null &&
+      urlAnterior.isNotEmpty &&
+      urlAnterior != urlLicenciaNueva) {
+    try {
+      await _storage.refFromURL(urlAnterior).delete();
+    } catch (error) {
+      // El perfil ya se actualizó. Si falla esta limpieza, la licencia nueva
+      // permanece guardada y la anterior puede eliminarse después.
+      debugPrint('No se pudo borrar la licencia anterior: $error');
+    }
+  }
+}
 
   // Elimina una cuenta de usuario mediante Cloud Functions.
   // Entrada: [uid], identificador del usuario que se eliminará.

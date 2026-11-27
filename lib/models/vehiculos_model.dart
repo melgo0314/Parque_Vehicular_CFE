@@ -52,7 +52,7 @@ class VehiculoModel {
     this.estadoOperativo = 'operativo',
     this.kilometrajeActual = 0,
     this.kilometrajeBasePreventivo,
-    int intervaloPreventivo = 5000,
+    int intervaloPreventivo = 10000,
     int? intervaloPreventivoKm,
     this.operadorUidActual = '',
   }) : intervaloPreventivo =
@@ -106,7 +106,7 @@ class VehiculoModel {
           : _entero(map['kilometrajeBasePreventivo']),
       intervaloPreventivo: _entero(
         map['intervaloPreventivo'] ?? map['intervaloPreventivoKm'],
-        valorPredeterminado: 5000,
+        valorPredeterminado: 10000,
       ),
       operadorUidActual: _texto(
         map['operadorUidActual'] ?? map['operadorUid'],

@@ -1,6 +1,8 @@
-
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/kilometraje_model.dart';
 import '../models/vehiculos_model.dart';
@@ -11,10 +13,7 @@ import '../viewmodel/kilometraje_viewmodel.dart';
 class KilometrajeView extends StatefulWidget {
   final List<VehiculoModel> vehiculos;
 
-  const KilometrajeView({
-    super.key,
-    required this.vehiculos,
-  });
+  const KilometrajeView({super.key, required this.vehiculos});
 
   @override
   State<KilometrajeView> createState() => _KilometrajeViewState();
@@ -60,9 +59,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
           _errorVehiculos = null;
 
           if (_vehiculos.isNotEmpty &&
-              !_vehiculos.any(
-                (vehiculo) => vehiculo.uid == _vehiculoUid,
-              )) {
+              !_vehiculos.any((vehiculo) => vehiculo.uid == _vehiculoUid)) {
             _vehiculoUid = _vehiculos.first.uid;
           }
         });
@@ -87,9 +84,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
   }
 
   // Abre el formulario para iniciar o finalizar una jornada.
-  Future<void> _abrirFormulario({
-    KilometrajeModel? registro,
-  }) async {
+  Future<void> _abrirFormulario({KilometrajeModel? registro}) async {
     if (_cargandoVehiculos) {
       _mostrarMensaje('Espera mientras se cargan los vehículos.');
       return;
@@ -125,8 +120,8 @@ class _KilometrajeViewState extends State<KilometrajeView> {
       registro == null
           ? 'El kilometraje se inició correctamente.'
           : registro.estaPendiente
-              ? 'El kilometraje finalizó correctamente.'
-              : 'El registro se actualizó correctamente.',
+          ? 'El kilometraje finalizó correctamente.'
+          : 'El registro se actualizó correctamente.',
     );
   }
 
@@ -155,9 +150,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
           content: Text(
             registro.estaPendiente
                 ? '¿Deseas eliminar este registro pendiente? '
-                    'El vehículo quedará disponible para iniciar otro.'
+                      'El vehículo quedará disponible para iniciar otro.'
                 : '¿Estás seguro de que deseas eliminar este registro? '
-                    'Esta acción no se puede deshacer.',
+                      'Esta acción no se puede deshacer.',
           ),
           actions: [
             TextButton(
@@ -218,8 +213,18 @@ class _KilometrajeViewState extends State<KilometrajeView> {
   // Da formato a una fecha.
   String _formatearFecha(DateTime fecha) {
     const meses = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
     ];
 
     final dia = fecha.day.toString().padLeft(2, '0');
@@ -232,9 +237,9 @@ class _KilometrajeViewState extends State<KilometrajeView> {
   // Da formato a un kilometraje.
   String _formatearKilometraje(int kilometraje) {
     return kilometraje.toString().replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (coincidencia) => '${coincidencia[1]},',
-        );
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (coincidencia) => '${coincidencia[1]},',
+    );
   }
 
   @override
@@ -252,10 +257,12 @@ class _KilometrajeViewState extends State<KilometrajeView> {
       }
     }
 
-    vehiculoSeleccionado ??=
-        vehiculosDisponibles.isEmpty ? null : vehiculosDisponibles.first;
+    vehiculoSeleccionado ??= vehiculosDisponibles.isEmpty
+        ? null
+        : vehiculosDisponibles.first;
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -269,78 +276,69 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         child: _cargandoVehiculos
             ? const Center(child: CircularProgressIndicator())
             : _errorVehiculos != null
-                ? _estadoVacio(
-                    icono: Icons.cloud_off_outlined,
-                    mensaje: _errorVehiculos!,
-                  )
-                : vehiculoSeleccionado == null
-                    ? _estadoVacio(
-                        icono: Icons.local_shipping_outlined,
-                        mensaje:
-                            'No hay vehículos disponibles para consultar el kilometraje.',
-                      )
-                    : StreamBuilder<List<KilometrajeModel>>(
-                        stream: _viewModel.obtenerRegistros(
-                          vehiculoUid: vehiculoSeleccionado.uid,
-                        ),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasError) {
-                            return _estadoVacio(
-                              icono: Icons.cloud_off_outlined,
-                              mensaje:
-                                  'No se pudieron cargar los registros. '
-                                  'Revisa tu conexión.',
-                            );
-                          }
+            ? _estadoVacio(
+                icono: Icons.cloud_off_outlined,
+                mensaje: _errorVehiculos!,
+              )
+            : vehiculoSeleccionado == null
+            ? _estadoVacio(
+                icono: Icons.local_shipping_outlined,
+                mensaje: 'No hay vehículos disponibles para consultar el kilometraje.',
+              )
+            : StreamBuilder<List<KilometrajeModel>>(
+                stream: _viewModel.obtenerRegistros(
+                  vehiculoUid: vehiculoSeleccionado.uid,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _estadoVacio(
+                      icono: Icons.cloud_off_outlined,
+                      mensaje:
+                          'No se pudieron cargar los registros. '
+                          'Revisa tu conexión.',
+                    );
+                  }
 
-                          final registros = snapshot.data ?? [];
+                  final registros = snapshot.data ?? [];
 
-                          KilometrajeModel? jornadaPendiente;
+                  KilometrajeModel? jornadaPendiente;
 
-                          for (final registro in registros) {
-                            if (registro.estaPendiente) {
-                              jornadaPendiente = registro;
-                              break;
-                            }
-                          }
+                  for (final registro in registros) {
+                    if (registro.estaPendiente) {
+                      jornadaPendiente = registro;
+                      break;
+                    }
+                  }
 
-                          return ListView(
-                            padding: const EdgeInsets.fromLTRB(
-                              16,
-                              20,
-                              16,
-                              100,
-                            ),
-                            children: [
-                              _selectorVehiculo(vehiculosDisponibles),
-                              const SizedBox(height: 14),
-                              _resumenKilometraje(
-                                vehiculoSeleccionado!,
-                                registros,
-                                jornadaPendiente,
-                              ),
-                              const SizedBox(height: 14),
-
-                              if (jornadaPendiente != null)
-                                _tarjetaJornadaPendiente(jornadaPendiente),
-
-                              if (snapshot.connectionState ==
-                                      ConnectionState.waiting &&
-                                  !snapshot.hasData)
-                                const Padding(
-                                  padding: EdgeInsets.all(24),
-                                  child: Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              else if (registros.isEmpty)
-                                _vistaSinRegistros(vehiculoSeleccionado)
-                              else
-                                ...registros.map(_tarjetaRegistro),
-                            ],
-                          );
-                        },
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+                    children: [
+                      _selectorVehiculo(vehiculosDisponibles),
+                      const SizedBox(height: 14),
+                      _resumenKilometraje(
+                        vehiculoSeleccionado!,
+                        registros,
+                        jornadaPendiente,
                       ),
+                      const SizedBox(height: 14),
+
+                      if (jornadaPendiente != null)
+                        _tarjetaJornadaPendiente(jornadaPendiente),
+
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (registros.isEmpty)
+                        _vistaSinRegistros(vehiculoSeleccionado)
+                      else
+                        ...registros.map(_tarjetaRegistro),
+                    ],
+                  );
+                },
+              ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -360,21 +358,14 @@ class _KilometrajeViewState extends State<KilometrajeView> {
   }
 
   // Construye un estado vacío o de error.
-  Widget _estadoVacio({
-    required IconData icono,
-    required String mensaje,
-  }) {
+  Widget _estadoVacio({required IconData icono, required String mensaje}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icono,
-              size: 48,
-              color: AppTheme.secondaryText,
-            ),
+            Icon(icono, size: 48, color: AppTheme.secondaryText),
             const SizedBox(height: 14),
             Text(
               mensaje,
@@ -389,9 +380,8 @@ class _KilometrajeViewState extends State<KilometrajeView> {
 
   // Construye el selector de vehículo.
   Widget _selectorVehiculo(List<VehiculoModel> vehiculos) {
-    final valorSeleccionado = vehiculos.any(
-      (vehiculo) => vehiculo.uid == _vehiculoUid,
-    )
+    final valorSeleccionado =
+        vehiculos.any((vehiculo) => vehiculo.uid == _vehiculoUid)
         ? _vehiculoUid
         : vehiculos.first.uid;
 
@@ -399,6 +389,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
       initialValue: valorSeleccionado,
       isExpanded: true,
       decoration: const InputDecoration(
+        labelText: 'Filtrar por vehículo',
         prefixIcon: Icon(Icons.local_shipping_outlined),
       ),
       items: vehiculos.map((vehiculo) {
@@ -435,13 +426,14 @@ class _KilometrajeViewState extends State<KilometrajeView> {
     final kilometrajeActual = jornadaPendiente != null
         ? jornadaPendiente.kilometrajeIni
         : finalizados.isNotEmpty
-            ? finalizados.first.kilometrajeFinal!
-            : vehiculo.kilometrajeActual;
+        ? finalizados.first.kilometrajeFinal!
+        : vehiculo.kilometrajeActual;
 
     int variacion = 0;
 
     if (finalizados.length > 1) {
-      variacion = finalizados.first.kilometrajeFinal! -
+      variacion =
+          finalizados.first.kilometrajeFinal! -
           finalizados.last.kilometrajeFinal!;
     }
 
@@ -517,10 +509,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.pending_actions,
-                color: AppTheme.primaryText,
-              ),
+              const Icon(Icons.pending_actions, color: AppTheme.primaryText),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -617,10 +606,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
                       value: 'finalizar',
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.flag_outlined,
-                            color: AppTheme.cfeGreen,
-                          ),
+                          Icon(Icons.flag_outlined, color: AppTheme.cfeGreen),
                           SizedBox(width: 10),
                           Text('Finalizar jornada'),
                         ],
@@ -644,10 +630,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
                     value: 'eliminar',
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.delete_outline,
-                          color: AppTheme.errorRed,
-                        ),
+                        Icon(Icons.delete_outline, color: AppTheme.errorRed),
                         SizedBox(width: 10),
                         Text(
                           'Eliminar',
@@ -665,19 +648,13 @@ class _KilometrajeViewState extends State<KilometrajeView> {
           Row(
             children: [
               Expanded(
-                child: _datoKilometraje(
-                  'Inicio',
-                  registro.kilometrajeIni,
-                ),
+                child: _datoKilometraje('Inicio', registro.kilometrajeIni),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: estaPendiente
                     ? _datoPendiente()
-                    : _datoKilometraje(
-                        'Final',
-                        registro.kilometrajeFinal!,
-                      ),
+                    : _datoKilometraje('Final', registro.kilometrajeFinal!),
               ),
             ],
           ),
@@ -687,10 +664,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
           if (estaPendiente)
             const Text(
               'Esta jornada todavía no tiene kilometraje final.',
-              style: TextStyle(
-                color: AppTheme.secondaryText,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: AppTheme.secondaryText, fontSize: 13),
             )
           else
             Row(
@@ -731,10 +705,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
       children: [
         Text(
           titulo,
-          style: const TextStyle(
-            color: AppTheme.secondaryText,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12),
         ),
         const SizedBox(height: 4),
         Text(
@@ -756,10 +727,7 @@ class _KilometrajeViewState extends State<KilometrajeView> {
       children: [
         Text(
           'Final',
-          style: TextStyle(
-            color: AppTheme.secondaryText,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: AppTheme.secondaryText, fontSize: 12),
         ),
         SizedBox(height: 4),
         Text(

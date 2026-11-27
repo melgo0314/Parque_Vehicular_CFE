@@ -31,6 +31,9 @@ class MantenimientoModel {
   // Kilometraje en el que se realizó el mantenimiento.
   final int? kilometrajeRealizado;
 
+  // Indica que un correctivo realizado también regularizó un preventivo vencido.
+  final bool regularizaPreventivo;
+
   final double? horometro;
   final String trabajoRealizado;
   final List<DetalleRefaccionModel> detalleRefacciones;
@@ -60,6 +63,7 @@ class MantenimientoModel {
     this.fechaRealizado,
     this.kilometrajeProgramado,
     this.kilometrajeRealizado,
+    this.regularizaPreventivo = false,
     this.horometro,
     this.trabajoRealizado = '',
     this.detalleRefacciones = const [],
@@ -118,6 +122,7 @@ class MantenimientoModel {
       kilometrajeRealizado: _enteroOpcional(
         map['kilometrajeRealizado'],
       ),
+      regularizaPreventivo: map['regularizaPreventivo'] == true,
       horometro: _decimalOpcional(map['horometro']),
       trabajoRealizado: _texto(map['trabajoRealizado']),
       detalleRefacciones: lista.map((elemento) {
@@ -154,6 +159,7 @@ class MantenimientoModel {
       'fechaRealizado': _guardarFecha(fechaRealizado),
       'kilometrajeProgramado': kilometrajeProgramado,
       'kilometrajeRealizado': kilometrajeRealizado,
+      'regularizaPreventivo': regularizaPreventivo,
       'horometro': horometro,
       'trabajoRealizado': trabajoRealizado.trim(),
       'costo': costo,

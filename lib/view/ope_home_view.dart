@@ -1,7 +1,7 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import '../core/routes/app_routes.dart';
 import '../core/theme/app_theme.dart';
@@ -17,8 +17,7 @@ class OpeHomeView extends StatefulWidget {
 }
 
 class _OpeHomeViewState extends State<OpeHomeView> {
-  final NotificacionViewmodel _notificacionViewmodel =
-      NotificacionViewmodel();
+  final NotificacionViewmodel _notificacionViewmodel = NotificacionViewmodel();
 
   @override
   void initState() {
@@ -43,10 +42,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
   }
 
   void _abrirNotificaciones(BuildContext context) {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.notificaciones,
-    ).then((_) {
+    Navigator.pushNamed(context, AppRoutes.notificaciones).then((_) {
       if (mounted) {
         _notificacionViewmodel.obtenerNotificaciones();
       }
@@ -117,6 +113,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       body: SafeArea(
         child: Column(
@@ -169,10 +166,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
                             icono: Icons.local_shipping_outlined,
                           ),
                         const SizedBox(height: 16),
-                        _accionesRapidas(
-                          context,
-                          vehiculo: vehiculo,
-                        ),
+                        _accionesRapidas(context, vehiculo: vehiculo),
                         const SizedBox(height: 24),
                         const Text(
                           'Módulos',
@@ -183,10 +177,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _modulos(
-                          context,
-                          vehiculo: vehiculo,
-                        ),
+                        _modulos(context, vehiculo: vehiculo),
                       ],
                     ),
                   );
@@ -292,10 +283,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
 
               IconButton(
                 tooltip: 'Cerrar sesión',
-                constraints: const BoxConstraints(
-                  minWidth: 48,
-                  minHeight: 48,
-                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 icon: const Icon(
                   Icons.logout,
                   color: AppTheme.pureWhite,
@@ -377,12 +365,9 @@ class _OpeHomeViewState extends State<OpeHomeView> {
     );
   }
 
-  Widget _tarjetaUnidadAsignada(
-    BuildContext context,
-    VehiculoModel vehiculo,
-  ) {
-    final descripcion =
-        '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'.trim();
+  Widget _tarjetaUnidadAsignada(BuildContext context, VehiculoModel vehiculo) {
+    final descripcion = '${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.anio}'
+        .trim();
 
     return Card(
       color: AppTheme.pureWhite,
@@ -397,9 +382,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FormVehiculoView(
-                vehiculo: vehiculo,
-              ),
+              builder: (context) => FormVehiculoView(vehiculo: vehiculo),
             ),
           );
         },
@@ -499,10 +482,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
               const SizedBox(height: 8),
               const Text(
                 'Toca aquí para editar la información de tu unidad.',
-                style: TextStyle(
-                  color: AppTheme.secondaryText,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppTheme.secondaryText, fontSize: 12),
               ),
             ],
           ),
@@ -511,10 +491,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
     );
   }
 
-  Widget _tarjetaMensajeUnidad(
-    String mensaje, {
-    required IconData icono,
-  }) {
+  Widget _tarjetaMensajeUnidad(String mensaje, {required IconData icono}) {
     return Card(
       color: AppTheme.pureWhite,
       elevation: 0,
@@ -531,9 +508,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
             Expanded(
               child: Text(
                 mensaje,
-                style: const TextStyle(
-                  color: AppTheme.secondaryText,
-                ),
+                style: const TextStyle(color: AppTheme.secondaryText),
               ),
             ),
           ],
@@ -553,9 +528,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
       child: const Padding(
         padding: EdgeInsets.all(24),
         child: Center(
-          child: CircularProgressIndicator(
-            color: AppTheme.cfeGreen,
-          ),
+          child: CircularProgressIndicator(color: AppTheme.cfeGreen),
         ),
       ),
     );
@@ -650,10 +623,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
     );
   }
 
-  Widget _modulos(
-    BuildContext context, {
-    required VehiculoModel? vehiculo,
-  }) {
+  Widget _modulos(BuildContext context, {required VehiculoModel? vehiculo}) {
     final habilitados = vehiculo != null;
 
     return GridView.count(
@@ -717,10 +687,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
         onTap: habilitado ? alTocar : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: const Border.fromBorderSide(
@@ -731,9 +698,7 @@ class _OpeHomeViewState extends State<OpeHomeView> {
             children: [
               Icon(
                 icono,
-                color: habilitado
-                    ? AppTheme.cfeGreen
-                    : AppTheme.secondaryText,
+                color: habilitado ? AppTheme.cfeGreen : AppTheme.secondaryText,
                 size: 24,
               ),
               const SizedBox(width: 12),

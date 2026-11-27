@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
 
 import 'package:p_vehicular/core/theme/app_theme.dart';
 import 'package:p_vehicular/models/vehiculos_model.dart';
@@ -24,26 +24,11 @@ class _ReportesViewState extends State<ReportesView> {
   final List<String> _vehiculosSeleccionados = [];
 
   final List<Map<String, String>> _tiposReporte = [
-    {
-      'valor': 'kilometraje',
-      'nombre': 'Kilometraje',
-    },
-    {
-      'valor': 'rendimiento',
-      'nombre': 'Rendimiento de combustible',
-    },
-    {
-      'valor': 'mantenimientos',
-      'nombre': 'Mantenimientos',
-    },
-    {
-      'valor': 'reparaciones',
-      'nombre': 'Reparaciones',
-    },
-    {
-      'valor': 'cargas',
-      'nombre': 'Cargas de combustible',
-    },
+    {'valor': 'kilometraje', 'nombre': 'Kilometraje'},
+    {'valor': 'rendimiento', 'nombre': 'Rendimiento de combustible'},
+    {'valor': 'mantenimientos', 'nombre': 'Mantenimientos'},
+    {'valor': 'reparaciones', 'nombre': 'Reparaciones'},
+    {'valor': 'cargas', 'nombre': 'Cargas de combustible'},
   ];
 
   @override
@@ -66,9 +51,7 @@ class _ReportesViewState extends State<ReportesView> {
   Future<void> _seleccionarFecha(bool esFechaInicio) async {
     final fechaActual = DateTime.now();
 
-    final fechaInicial = esFechaInicio
-        ? _fechaInicio!
-        : _fechaFin!;
+    final fechaInicial = esFechaInicio ? _fechaInicio! : _fechaFin!;
 
     final fecha = await showDatePicker(
       context: context,
@@ -78,9 +61,8 @@ class _ReportesViewState extends State<ReportesView> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppTheme.cfeGreen,
-            ),
+            colorScheme: Theme.of(context).colorScheme
+                .copyWith(primary: AppTheme.cfeGreen),
           ),
           child: child!,
         );
@@ -130,22 +112,15 @@ class _ReportesViewState extends State<ReportesView> {
     });
   }
 
-  
   // Valida los campos, consulta la información y exporta el reporte.
   Future<void> _generarReporte() async {
     if (_tipoReporte == null) {
-      _mostrarMensaje(
-        'Selecciona el tipo de reporte.',
-        esError: true,
-      );
+      _mostrarMensaje('Selecciona el tipo de reporte.', esError: true);
       return;
     }
 
     if (_fechaInicio == null || _fechaFin == null) {
-      _mostrarMensaje(
-        'Selecciona el periodo del reporte.',
-        esError: true,
-      );
+      _mostrarMensaje('Selecciona el periodo del reporte.', esError: true);
       return;
     }
 
@@ -158,10 +133,7 @@ class _ReportesViewState extends State<ReportesView> {
     }
 
     if (_vehiculosSeleccionados.isEmpty) {
-      _mostrarMensaje(
-        'Selecciona al menos un vehículo.',
-        esError: true,
-      );
+      _mostrarMensaje('Selecciona al menos un vehículo.', esError: true);
       return;
     }
 
@@ -175,10 +147,7 @@ class _ReportesViewState extends State<ReportesView> {
     if (!mounted) return;
 
     if (reporte == null) {
-      _mostrarMensaje(
-        _viewmodel.mensaje,
-        esError: true,
-      );
+      _mostrarMensaje(_viewmodel.mensaje, esError: true);
       return;
     }
 
@@ -192,17 +161,14 @@ class _ReportesViewState extends State<ReportesView> {
 
     _mostrarMensaje(
       _viewmodel.mensaje,
-      esError: !resultado &&
+      esError:
+          !resultado &&
           _viewmodel.mensaje != 'Se canceló el guardado del archivo.',
     );
   }
 
-
   // Muestra mensajes de éxito o error.
-  void _mostrarMensaje(
-    String mensaje, {
-    bool esError = false,
-  }) {
+  void _mostrarMensaje(String mensaje, {bool esError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -229,19 +195,14 @@ class _ReportesViewState extends State<ReportesView> {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 15,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
         decoration: BoxDecoration(
           color: seleccionado
               ? AppTheme.cfeGreen.withValues(alpha: 0.08)
               : AppTheme.pureWhite,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: seleccionado
-                ? AppTheme.cfeGreen
-                : Colors.grey.shade300,
+            color: seleccionado ? AppTheme.cfeGreen : Colors.grey.shade300,
             width: seleccionado ? 1.5 : 1,
           ),
         ),
@@ -251,9 +212,7 @@ class _ReportesViewState extends State<ReportesView> {
               seleccionado
                   ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked,
-              color: seleccionado
-                  ? AppTheme.cfeGreen
-                  : Colors.grey,
+              color: seleccionado ? AppTheme.cfeGreen : Colors.grey,
               size: 23,
             ),
             const SizedBox(width: 12),
@@ -285,10 +244,7 @@ class _ReportesViewState extends State<ReportesView> {
         children: [
           Text(
             titulo,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 7),
           InkWell(
@@ -296,24 +252,18 @@ class _ReportesViewState extends State<ReportesView> {
             borderRadius: BorderRadius.circular(12),
             child: Container(
               height: 51,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 13),
               decoration: BoxDecoration(
                 color: AppTheme.pureWhite,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.grey.shade300,
-                ),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       _formatearFecha(fecha),
-                      style: const TextStyle(
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                   const Icon(
@@ -332,46 +282,31 @@ class _ReportesViewState extends State<ReportesView> {
 
   // Construye el botón de selección de cada vehículo.
   Widget _construirOpcionVehiculo(VehiculoModel vehiculo) {
-    final seleccionado = _vehiculosSeleccionados.contains(
-      vehiculo.uid,
-    );
+    final seleccionado = _vehiculosSeleccionados.contains(vehiculo.uid);
 
     return InkWell(
       onTap: () => _cambiarVehiculo(vehiculo.uid),
       borderRadius: BorderRadius.circular(30),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 15,
-          vertical: 11,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
         decoration: BoxDecoration(
-          color: seleccionado
-              ? AppTheme.cfeGreen
-              : AppTheme.pureWhite,
+          color: seleccionado ? AppTheme.cfeGreen : AppTheme.pureWhite,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: seleccionado
-                ? AppTheme.cfeGreen
-                : Colors.grey.shade300,
+            color: seleccionado ? AppTheme.cfeGreen : Colors.grey.shade300,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (seleccionado) ...[
-              const Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 18,
-              ),
+              const Icon(Icons.check, color: Colors.white, size: 18),
               const SizedBox(width: 6),
             ],
             Text(
               vehiculo.numeroEconomico,
               style: TextStyle(
-                color: seleccionado
-                    ? Colors.white
-                    : const Color(0xFF26332B),
+                color: seleccionado ? Colors.white : const Color(0xFF26332B),
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -387,6 +322,7 @@ class _ReportesViewState extends State<ReportesView> {
     final tema = Theme.of(context);
 
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
@@ -394,9 +330,7 @@ class _ReportesViewState extends State<ReportesView> {
         elevation: 0,
         title: const Text(
           'Reportes',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -408,9 +342,7 @@ class _ReportesViewState extends State<ReportesView> {
             decoration: BoxDecoration(
               color: AppTheme.pureWhite,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.grey.shade300,
-              ),
+              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,10 +350,7 @@ class _ReportesViewState extends State<ReportesView> {
                 // Tipo de reporte.
                 const Text(
                   'Tipo de reporte',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 9),
 
@@ -456,18 +385,14 @@ class _ReportesViewState extends State<ReportesView> {
                 // Selección de vehículos.
                 const Text(
                   'Vehículos',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 9),
 
                 StreamBuilder<List<VehiculoModel>>(
                   stream: _viewmodel.obtenerVehiculos(),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState ==
-                        ConnectionState.waiting) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
                         child: Padding(
                           padding: EdgeInsets.all(20),
@@ -479,18 +404,14 @@ class _ReportesViewState extends State<ReportesView> {
                     if (snapshot.hasError) {
                       return Text(
                         'No fue posible consultar los vehículos.',
-                        style: TextStyle(
-                          color: tema.colorScheme.error,
-                        ),
+                        style: TextStyle(color: tema.colorScheme.error),
                       );
                     }
 
                     final vehiculos = snapshot.data ?? [];
 
                     if (vehiculos.isEmpty) {
-                      return const Text(
-                        'No hay vehículos disponibles.',
-                      );
+                      return const Text('No hay vehículos disponibles.');
                     }
 
                     return Wrap(
@@ -536,8 +457,9 @@ class _ReportesViewState extends State<ReportesView> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.cfeGreen,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor:
-                              AppTheme.cfeGreen.withValues(alpha: 0.6),
+                          disabledBackgroundColor: AppTheme.cfeGreen.withValues(
+                            alpha: 0.6,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

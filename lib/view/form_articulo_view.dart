@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:p_vehicular/core/widgets/inicio_footer.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/articulo_model.dart';
 import '../viewmodel/inventario_viewmodel.dart';
@@ -6,10 +8,7 @@ import '../viewmodel/inventario_viewmodel.dart';
 class FormArticuloView extends StatefulWidget {
   final ArticuloModel? articulo;
 
-  const FormArticuloView({
-    super.key,
-    this.articulo,
-  });
+  const FormArticuloView({super.key, this.articulo});
 
   @override
   State<FormArticuloView> createState() => _FormArticuloViewState();
@@ -93,6 +92,7 @@ class _FormArticuloViewState extends State<FormArticuloView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const InicioFooter(),
       backgroundColor: AppTheme.pearlWhite,
       appBar: AppBar(
         backgroundColor: AppTheme.cfeGreen,
